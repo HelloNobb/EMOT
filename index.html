@@ -33,6 +33,42 @@
   </section>
   <div id="face-frame" class="face-frame"></div>
 
+  <section class="panel emotion">
+    <div class="headline"><b id="emotion-name">평온</b> <span id="emotion-intensity">score 0.00</span></div>
+
+    <h2>emotion</h2>
+    <div class="metric" data-emotion="neutral"><span>neutral</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="happy"><span>happy</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="sad"><span>sad</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="angry"><span>angry</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="surprised"><span>surprised</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="fear"><span>fear</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="disgust"><span>disgust</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-emotion="contempt"><span>contempt</span><div class="bar"><i></i></div><b>0.000</b></div>
+
+    <h2>intensity</h2>
+    <div class="metric" data-intensity="0"><span>0 거의 없음</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-intensity="1"><span>1 약함</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-intensity="2"><span>2 분명함</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-intensity="3"><span>3 강함</span><div class="bar"><i></i></div><b>0.000</b></div>
+    <div class="metric" data-intensity="4"><span>4 압도적</span><div class="bar"><i></i></div><b>0.000</b></div>
+
+    <h2>meta</h2>
+    <div class="row"><span>confidence</span><b id="confidence">-</b></div>
+    <div class="row"><span>latency</span><b id="latency">-</b></div>
+    <div class="row"><span>requests</span><b id="requests">0</b></div>
+    <div class="row"><span>failures</span><b id="failures">0</b></div>
+    <details>
+      <summary>원본 응답 JSON</summary>
+      <pre id="raw-json">-</pre>
+    </details>
+  </section>
+
+  <form class="chat" onsubmit="return false">
+    <input id="message" maxlength="200" autocomplete="off" placeholder="캐릭터에게 말 걸기…">
+    <span id="judge-status" class="status">입력하면 Jev가 감정을 판단해요</span>
+  </form>
+
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

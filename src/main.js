@@ -3,7 +3,8 @@ import { buildRoom } from './room.js';
 import { loadVrm, Character } from './character.js';
 import { Sim } from './sim.js';
 import { Face } from './face.js';
-import { showStats } from './ui.js';
+import { createEmotionJudge } from './emotion.js';
+import { showStats, showEmotion, showJudgeStats, showJudgeStatus } from './ui.js';
 import { CHARACTER_URL, SAVE_INTERVAL_SECONDS } from './config.js';
 
 const UI_INTERVAL_SECONDS = 0.1; // DOM writes don't need 60 Hz
@@ -36,6 +37,18 @@ scene.add(character.root);
 const sim = new Sim(character, room.spots);
 const face = new Face(vrm.expressionManager);
 document.getElementById('loading').remove();
+
+// Typing -> (debounce) -> Jev via proxy -> face target + panel. Needs travel along as context.
+const judge = createEmotionJudge({
+  getContext: () => sim.context(),
+  onResult: (result) => {
+    face.setEmotion(result.probabilities, result.intensity);
+    showEmotion(result);
+  },
+  onStatus: showJudgeStatus,
+  onStats: showJudgeStats,
+});
+document.getElementById('message').addEventListener('input', (event) => judge.queue(event.target.value));
 
 // Face close-up: a second camera follows the head bone and renders into the #face-frame rectangle.
 const FACE_DISTANCE = 0.75;

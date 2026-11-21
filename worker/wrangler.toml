@@ -1,0 +1,12 @@
+name = "emot-proxy"
+main = "index.js"
+compatibility_date = "2026-11-01"
+
+# Per-IP limit used by env.LIMITER in index.js. period must be 10 or 60 seconds.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
+
+# Secret, not stored here: npx wrangler secret put AI_GATEWAY_API_KEY
+# Local dev reads it from worker/.dev.vars (gitignored).

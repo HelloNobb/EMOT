@@ -28,6 +28,11 @@ export const COINS_PER_SECOND = 1;
 export const LEVEL_MONEY_UNIT = 50; // level = floor(sqrt(money / unit)) + 1
 export const MINING_BONUS_PER_LEVEL = 0.2;
 
+// Cloudflare Worker URL after deploying worker/ (see PLAN.md). Empty string = emotion judging is off.
+// Local worker: 'http://localhost:8787'
+export const PROXY_URL = '';
+export const JUDGE_DEBOUNCE_MS = 600; // wait this long after the last keystroke before asking Jev
+
 // Order matches the Jev question's criteria and the panel rows.
 export const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
 
