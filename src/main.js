@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildRoom } from './room.js';
 import { loadVrm, Character } from './character.js';
 import { Sim } from './sim.js';
+import { Face } from './face.js';
 import { showStats } from './ui.js';
 import { CHARACTER_URL, SAVE_INTERVAL_SECONDS } from './config.js';
 
@@ -33,7 +34,39 @@ const character = new Character(vrm);
 character.root.position.set(0, 0, 0.5);
 scene.add(character.root);
 const sim = new Sim(character, room.spots);
+const face = new Face(vrm.expressionManager);
 document.getElementById('loading').remove();
+
+// Face close-up: a second camera follows the head bone and renders into the #face-frame rectangle.
+const FACE_DISTANCE = 0.75;
+const FACE_CENTER_ABOVE_HEAD = 0.07; // head bone sits at the neck; the face is a bit higher
+const faceFrame = document.getElementById('face-frame');
+const faceCamera = new THREE.PerspectiveCamera(30, 1, 0.05, 10);
+const headPosition = new THREE.Vector3();
+const headRotation = new THREE.Quaternion();
+const faceForward = new THREE.Vector3();
+let faceViewport = null;
+
+function renderFace() {
+  character.bone.head.getWorldPosition(headPosition);
+  character.bone.head.getWorldQuaternion(headRotation);
+  faceCamera.up.set(0, 1, 0).applyQuaternion(headRotation);
+  faceForward.set(0, 0, 1).applyQuaternion(headRotation); // normalized VRM bones face +Z
+  headPosition.addScaledVector(faceCamera.up, FACE_CENTER_ABOVE_HEAD);
+  faceCamera.position.copy(headPosition).addScaledVector(faceForward, FACE_DISTANCE);
+  faceCamera.lookAt(headPosition);
+
+  const { left, bottom, width, height } = faceViewport;
+  const y = window.innerHeight - bottom; // WebGL viewport origin is bottom-left
+  faceCamera.aspect = width / height;
+  faceCamera.updateProjectionMatrix();
+  renderer.setScissorTest(true);
+  renderer.setScissor(left, y, width, height);
+  renderer.setViewport(left, y, width, height);
+  renderer.render(scene, faceCamera);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+}
 
 const BASE_FOV = 40;
 const BASE_ASPECT = 1.5;
@@ -45,6 +78,7 @@ function resize() {
   const halfHeight = Math.tan(THREE.MathUtils.degToRad(BASE_FOV / 2)) * Math.max(1, BASE_ASPECT / camera.aspect);
   camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(halfHeight));
   camera.updateProjectionMatrix();
+  faceViewport = faceFrame.getBoundingClientRect(); // CSS owns where the face inset sits
 }
 window.addEventListener('resize', resize);
 resize();
@@ -81,9 +115,11 @@ renderer.setAnimationLoop((time) => {
 
   sim.update(dt);
   character.update(dt);
+  face.update(dt, character.pose);
   vrm.update(dt);
   room.setLaptopOn(sim.isWorking);
   renderer.render(scene, camera);
+  renderFace();
 
   uiTimer += dt;
   if (uiTimer >= UI_INTERVAL_SECONDS) {

@@ -28,5 +28,25 @@ export const COINS_PER_SECOND = 1;
 export const LEVEL_MONEY_UNIT = 50; // level = floor(sqrt(money / unit)) + 1
 export const MINING_BONUS_PER_LEVEL = 0.2;
 
+// Order matches the Jev question's criteria and the panel rows.
+export const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
+
+// VRM preset weights per emotion. Presets have no fear/disgust/contempt, so those blend existing ones.
+export const EXPRESSION_MAP = {
+  neutral: {},
+  happy: { happy: 1 },
+  sad: { sad: 1 },
+  angry: { angry: 1 },
+  surprised: { surprised: 1, aa: 0.3 },
+  fear: { surprised: 0.6, sad: 0.6 },
+  disgust: { angry: 0.6, sad: 0.4, ih: 0.4 },
+  contempt: { relaxed: 0.5, angry: 0.35 },
+};
+export const INTENSITY_GAIN = 2; // expression strength = min(1, score/4 * gain); "clear" (2/4) already reads as full
+export const EXPRESSION_SMOOTHING = 6; // higher = faster approach to the target face
+export const BLINK_MIN_SECONDS = 2.5;
+export const BLINK_MAX_SECONDS = 5.5;
+export const BLINK_SECONDS = 0.15;
+
 export const SAVE_KEY = 'emot.save.v1';
 export const SAVE_INTERVAL_SECONDS = 5;

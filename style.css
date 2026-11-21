@@ -78,6 +78,18 @@ body {
   font-size: 11px;
 }
 
+/* The WebGL face close-up is drawn under this frame; main.js reads its rectangle. */
+.face-frame {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: min(240px, 34vw);
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
 .loading {
   position: fixed;
   inset: 0;
