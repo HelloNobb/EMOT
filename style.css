@@ -24,6 +24,60 @@ body {
   display: block;
 }
 
+.panel {
+  position: fixed;
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+}
+
+.stats {
+  top: 16px;
+  left: 16px;
+  width: 200px;
+}
+
+.stats h1 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  letter-spacing: 0.2em;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.row span { color: var(--muted); }
+.row b { font-family: var(--mono); font-weight: 600; }
+
+.bar {
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+
+.bar i.warm { background: #e8664f; }
+.bar i.cool { background: #6c8fe0; }
+
+.hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .loading {
   position: fixed;
   inset: 0;

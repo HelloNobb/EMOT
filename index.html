@@ -18,6 +18,19 @@
 <body>
   <canvas id="scene"></canvas>
   <div id="loading" class="loading">캐릭터 불러오는 중…</div>
+
+  <section class="panel stats">
+    <h1>EMOT</h1>
+    <div class="row"><span>코인</span><b id="money">0</b></div>
+    <div class="row"><span>레벨</span><b id="level">1</b></div>
+    <div class="bar"><i id="level-bar"></i></div>
+    <div class="row"><span>허기</span><b id="hunger">0</b></div>
+    <div class="bar"><i id="hunger-bar" class="warm"></i></div>
+    <div class="row"><span>피로</span><b id="fatigue">0</b></div>
+    <div class="bar"><i id="fatigue-bar" class="cool"></i></div>
+    <div class="row"><span>행동</span><b id="action">-</b></div>
+    <p class="hint">가구를 클릭하면 지시할 수 있어요</p>
+  </section>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

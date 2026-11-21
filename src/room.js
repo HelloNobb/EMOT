@@ -64,8 +64,8 @@ export function buildRoom(scene) {
   const spots = {
     eat: { position: new THREE.Vector3(-3.45, 0, -1.75), facing: Math.PI, seatHeight: 0 },
     work: { position: new THREE.Vector3(0.6, 0, -1.85), facing: Math.PI, seatHeight: 0.47 },
-    sleep: { position: new THREE.Vector3(3.1, 0, -0.75), facing: 0, seatHeight: 0.5 },
-    rest: { position: new THREE.Vector3(-3.1, 0, 1.0), facing: Math.PI / 2, seatHeight: 0.42 },
+    sleep: { position: new THREE.Vector3(3.1, 0, -0.95), facing: 0, seatHeight: 0.5 },
+    rest: { position: new THREE.Vector3(-2.82, 0, 1.0), facing: Math.PI / 2, seatHeight: 0.42 },
   };
 
   return {

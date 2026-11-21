@@ -81,8 +81,9 @@ const POSES = {
   eat(bone, time) {
     armsDown(bone);
     breathe(bone, time, 1.6);
-    bone.rightUpperArm.rotation.x = -1.0 - Math.max(0, Math.sin(time * 3)) * 0.3;
-    bone.rightLowerArm.rotation.y = 1.6;
+    bone.rightUpperArm.rotation.x = -0.6 - Math.max(0, Math.sin(time * 3)) * 0.25;
+    bone.rightUpperArm.rotation.y = 0.5;
+    bone.rightLowerArm.rotation.y = 2.2;
   },
   sleep(bone, time) {
     armsDown(bone);
