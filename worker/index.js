@@ -1,8 +1,8 @@
-// Proxy between the GitHub Pages client and Vercel AI Gateway.
+// Proxy between the GitHub Pages client and the TypeSafe API.
 // It hides the key and owns the questions, so this endpoint can only judge EMOT's character emotion.
 
-const GATEWAY_URL = 'https://ai-gateway.vercel.sh/typesafe/v1/systemone';
-const MODEL = 'typesafe-ai/jev';
+const TYPESAFE_URL = 'https://api.typesafe.ai/v1/systemone';
+const MODEL = 'jev-latest';
 const ALLOWED_ORIGINS = ['https://hellonobb.github.io', 'http://localhost:8000', 'http://127.0.0.1:8000'];
 const MAX_TEXT_LENGTH = 200;
 
@@ -82,9 +82,9 @@ export default {
     const input = readInput(await request.json().catch(() => null));
     if (!input) return json({ message: 'Invalid request' }, 400, cors);
 
-    const upstream = await fetch(GATEWAY_URL, {
+    const upstream = await fetch(TYPESAFE_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.AI_GATEWAY_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${env.TYPESAFE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: MODEL, state: describeState(input), questions: QUESTIONS }),
     });
     return new Response(upstream.body, { status: upstream.status, headers: { ...cors, 'Content-Type': 'application/json' } });

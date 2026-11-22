@@ -1,9 +1,9 @@
 # EMOT — PLAN
 
 ## 지금
-- 하던 것: [검증] MVP 전체 구현 완료, 개발자 플레이 테스트·코드 읽기 대기
-- 다음: Worker 배포 → `config.js`의 `PROXY_URL` 입력 → GitHub Pages 켜기 → 완료 조건 테스트
-- 막힌 것: AI Gateway 키 / Cloudflare 계정 (개발자)
+- 하던 것: [검증] MVP 배포 완료 (Pages + Worker), 개발자 플레이 테스트·코드 읽기 대기
+- 다음: 배포 페이지에서 완료 조건 테스트 → `/wrap`
+- 막힌 것: 없음
 - 메모: 캐릭터는 pixiv 샘플 VRM 임시. VRoid로 만든 내 캐릭터로 교체 예정
 
 ## 기능 정의
@@ -40,10 +40,10 @@
 - [x] 욕구·행동 상태머신·자율 선택·클릭 지시·레벨·저장
 - [x] 표정 매핑 + 보간 + 깜빡임 + 얼굴 확대 화면
 - [x] Jev 프록시(Worker) + 감정 판단 + 감정 패널
-- [ ] (개발자) Worker 배포: `cd worker && npx wrangler deploy`, `npx wrangler secret put AI_GATEWAY_API_KEY`
-- [ ] (개발자) `src/config.js` `PROXY_URL`에 Worker 주소 입력
-- [ ] (개발자) GitHub → Settings → Pages → Branch `main` / root
-- [ ] (개발자) Vercel AI Gateway: 선불 크레딧만, 자동 충전 끄기
+- [x] Worker 배포 + `TYPESAFE_API_KEY` 시크릿 등록
+- [x] `src/config.js` `PROXY_URL`에 Worker 주소 입력
+- [x] GitHub Pages 켜기 (`main` / root)
+- [ ] (개발자) TypeSafe 콘솔: 사용량 한도·자동 충전 설정 확인
 - [ ] (개발자) VRoid Studio로 캐릭터 제작 → `assets/character.vrm` 교체
 - [ ] 완료 조건 테스트
 

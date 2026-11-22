@@ -40,7 +40,8 @@ D1~D5는 개발자가 고른 것, D6~D11은 Claude가 기본값으로 정한 것
 - 옵션: Cloudflare Worker / Vercel Function(앱도 Vercel로 이전) / 방문자가 자기 키 입력(BYOK)
 - 선택: Cloudflare Worker
 - 이유: 무료 플랜 하루 10만 요청, GitHub Pages 유지 가능. BYOK는 면접관이 바로 못 써봄
-- 대가: 배포 대상이 둘(Pages + Worker). 공개 URL이라 남용 방어 필요 → Origin 허용 목록 + IP당 분당 30회 + 입력 길이 제한 + 선불 크레딧
+- 대가: 배포 대상이 둘(Pages + Worker). 공개 URL이라 남용 방어 필요 → Origin 허용 목록 + IP당 분당 30회 + 입력 길이 제한
+- Jev 접근: Vercel AI Gateway 대신 TypeSafe 공식 API 키 사용 (개발자 결정). Vercel 계정 관리가 필요 없어짐
 - 내가 이해한 흐름:
 
 ## D7. 캐릭터 모델 — Claude 기본값
