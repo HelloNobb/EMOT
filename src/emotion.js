@@ -1,4 +1,5 @@
-import { PROXY_URL, JUDGE_INTERVAL_MS, EMOTIONS } from './config.js';
+import { JUDGE_INTERVAL_MS, EMOTIONS } from './config.js';
+import { post } from './api.js';
 
 const INTENSITY_LEVELS = [0, 1, 2, 3, 4];
 
@@ -27,7 +28,7 @@ export function parseAnswers(data) {
   };
 }
 
-// Throttles typing, sends message + needs to the proxy, and drops answers that a newer message replaced.
+// Throttles typing, sends the text + Emot's state to /judge, and drops answers that a newer message replaced.
 export function createEmotionJudge({ getContext, onResult, onClear, onStatus, onStats }) {
   const stats = { requests: 0, failures: 0, latency: null };
   let latestId = 0;
@@ -42,13 +43,7 @@ export function createEmotionJudge({ getContext, onResult, onClear, onStatus, on
     onStats(stats);
     const started = performance.now();
     try {
-      const response = await fetch(PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, ...getContext() }), // needs read now, not when typing started
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message ?? data.message ?? `HTTP ${response.status}`);
+      const data = await post('/judge', { text, ...getContext() }); // state read now, not when typing started
       if (id !== latestId) return; // stale: the face must show the newest message, not the slowest answer
       stats.latency = Math.round(performance.now() - started);
       onResult(parseAnswers(data));
@@ -71,10 +66,6 @@ export function createEmotionJudge({ getContext, onResult, onClear, onStatus, on
         timer = 0;
         latestId++; // answers still in flight are for text that no longer exists
         onClear();
-        return;
-      }
-      if (!PROXY_URL) {
-        onStatus('error', 'PROXY_URL 미설정 (src/config.js)');
         return;
       }
       if (timer) return; // a send is already scheduled and will pick up the newest text

@@ -1,10 +1,11 @@
 // Logic self-check without a browser: node tests/check.mjs
 import assert from 'node:assert/strict';
 import { parseAnswers, createEmotionJudge } from '../src/emotion.js';
-import { JUDGE_INTERVAL_MS } from '../src/config.js';
-import { Sim, levelForMoney, moneyForLevel } from '../src/sim.js';
+import { Game, levelForXp } from '../src/game.js';
+import { Face } from '../src/face.js';
+import { JUDGE_INTERVAL_MS, ENERGY_MAX, ENERGY_REGEN_MS, LEVEL_XP, WORRIES_PER_DAY, DECAY_PER_HOUR } from '../src/config.js';
 
-// Jev answer with an interpolated score
+// ---- Jev answer parsing ----
 const result = parseAnswers({
   answers: {
     emotion: { type: 'choice', choice: 'surprised', probabilities: { surprised: 0.64, fear: 0.34, sad: 0.01, angry: 0.01 } },
@@ -14,8 +15,6 @@ const result = parseAnswers({
 assert.equal(result.emotion, 'surprised');
 assert.equal(result.probabilities.happy, 0); // missing keys become 0
 assert.equal(result.intensity, 1.94 / 4);
-
-// Without a score, fall back to the expected level: 0*.04 + 1*.2 + 2*.55 + 3*.21 = 1.93
 const noScore = parseAnswers({
   answers: {
     emotion: { probabilities: { happy: 0.9, neutral: 0.1 } },
@@ -23,41 +22,72 @@ const noScore = parseAnswers({
   },
 });
 assert.equal(noScore.emotion, 'happy'); // no choice field -> highest probability
-assert.ok(Math.abs(noScore.score - 1.93) < 1e-9);
+assert.ok(Math.abs(noScore.score - 1.93) < 1e-9); // expected level
 assert.throws(() => parseAnswers({ answers: {} }));
 
-// Level curve
-assert.equal(levelForMoney(0), 1);
-assert.equal(levelForMoney(49.9), 1);
-assert.equal(levelForMoney(50), 2);
-assert.equal(moneyForLevel(2), 50);
-assert.equal(levelForMoney(moneyForLevel(5)), 5);
+// ---- levels ----
+assert.equal(levelForXp(0), 1);
+assert.equal(levelForXp(LEVEL_XP[1] - 0.1), 1);
+assert.equal(levelForXp(LEVEL_XP[1]), 2);
+assert.equal(levelForXp(1e9), 10);
 
-// Autonomous choice and action flow with a stand-in body (no localStorage in node -> fresh save)
-const body = { arrived: true, moveTo() {}, use() {}, idle() {} };
-const sim = new Sim(body, { eat: {}, sleep: {}, work: {}, rest: {} });
-const pick = (hunger, fatigue) => Object.assign(sim.state, { hunger, fatigue }) && sim.choose();
-assert.equal(pick(60, 90), 'eat'); // hunger wins over fatigue
-assert.equal(pick(10, 70), 'sleep');
-assert.equal(pick(10, 40), 'rest');
-assert.equal(pick(10, 10), 'work');
+// ---- game: no localStorage in node -> fresh Emot ----
+const start = new Date(2026, 10, 22, 12).getTime();
+const game = new Game(start);
+assert.ok(['blunt', 'polite', 'anxious'].includes(game.state.personality));
 
-Object.assign(sim.state, { hunger: 30, fatigue: 10 });
-sim.command('eat');
-sim.update(0.1); // moving -> using
-assert.equal(sim.phase, 'using');
-for (let step = 0; step < 40 && sim.phase === 'using'; step++) sim.update(0.1);
-assert.equal(sim.phase, 'idle'); // ended because hunger reached 0
-assert.equal(sim.state.hunger, 0);
+// energy: spend 3, empty, refills one per interval, never above max
+for (let index = 0; index < ENERGY_MAX; index++) assert.ok(game.spendEnergy(start));
+assert.equal(game.spendEnergy(start), false);
+assert.equal(game.energyTimer(start), ENERGY_REGEN_MS);
+game.tick(start + ENERGY_REGEN_MS + 1);
+assert.equal(game.state.energy, 1);
+game.tick(start + ENERGY_REGEN_MS * 10);
+assert.equal(game.state.energy, ENERGY_MAX);
+assert.equal(game.energyTimer(start + ENERGY_REGEN_MS * 10), null);
+game.refundEnergy();
+assert.equal(game.state.energy, ENERGY_MAX);
 
-Object.assign(sim.state, { hunger: 10, fatigue: 10, money: 0 });
-sim.command('work');
-sim.update(0.1);
-sim.update(1);
-assert.ok(sim.state.money > 0.9 && sim.state.money < 1.1);
+// needs fall with real time, offline included
+const later = start + ENERGY_REGEN_MS * 10 + 2 * 60 * 60 * 1000;
+const socialBefore = game.state.social;
+game.tick(later);
+assert.ok(Math.abs(socialBefore - game.state.social - DECAY_PER_HOUR.social * 2) < 1e-6);
 
+// warm message raises bond and XP; hurtful one lowers them, clamped at 0 and reported as clamped
+const warm = game.applySend('고마워', 4, 0);
+assert.ok(warm.bond > 0 && warm.xp > 0);
+const hurt = game.applySend('바보', 0, 0.9);
+assert.ok(hurt.bond < 0);
+assert.equal(game.state.xp, Math.max(0, warm.xp + hurt.xp));
+assert.equal(game.state.history.length, 2);
 
-// Throttle: first keystroke sends at once, a burst collapses into one more send with the newest text
+// worries: three per day, reset on the next local day
+for (let index = 0; index < WORRIES_PER_DAY; index++) {
+  assert.ok(game.canAskWorry);
+  game.startWorry(`고민 ${index}`);
+  assert.equal(game.canAskWorry, false); // one at a time
+  game.applyAnswer('괜찮아', 3);
+}
+assert.equal(game.worriesLeft, 0);
+game.tick(later + 24 * 60 * 60 * 1000);
+assert.equal(game.worriesLeft, WORRIES_PER_DAY);
+
+// line memory is trimmed to the limits
+game.applyLine({ text: '흥', memory: Array.from({ length: 12 }, (_, index) => `기억 ${index}`) });
+assert.equal(game.state.memory.length, 8);
+
+// ---- face: emotion offsets move the target, and a blink closes the eyes ----
+const face = new Face();
+face.setRest(1, 'polite');
+face.setEmotion({ happy: 1 }, 0.5);
+for (let step = 0; step < 120; step++) face.update(1 / 60);
+assert.ok(face.params.mouthCurve > 0.8);
+face.setEmotion({}, 0);
+for (let step = 0; step < 120; step++) face.update(1 / 60);
+assert.ok(face.params.mouthCurve < 0.2);
+
+// ---- throttle: first keystroke sends at once, a burst collapses into one send with the newest text ----
 const sent = [];
 globalThis.fetch = async (url, options) => {
   sent.push(JSON.parse(options.body).text);
@@ -70,14 +100,14 @@ const judge = createEmotionJudge({
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 judge.queue('a');
 await wait(10);
-assert.deepEqual(sent, ['a']); // first keystroke goes out at once
+assert.deepEqual(sent, ['a']);
 judge.queue('ab');
 judge.queue('abc');
 await wait(10);
-assert.deepEqual(sent, ['a']); // inside the interval: held
+assert.deepEqual(sent, ['a']);
 await wait(JUDGE_INTERVAL_MS);
-assert.deepEqual(sent, ['a', 'abc']); // one send, newest text
+assert.deepEqual(sent, ['a', 'abc']);
 judge.queue('   ');
 assert.equal(cleared, 1);
 
-console.log('throttle checks passed');
+console.log('all checks passed');

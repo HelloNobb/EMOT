@@ -5,33 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EMOT</title>
   <link rel="stylesheet" href="style.css">
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/",
-        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"
-      }
-    }
-  </script>
 </head>
 <body>
-  <canvas id="scene"></canvas>
-  <div id="loading" class="loading">캐릭터 불러오는 중…</div>
+  <canvas id="stage"></canvas>
+  <div id="loading" class="loading">이모트를 깨우는 중…</div>
 
   <section class="panel stats">
-    <h1>EMOT</h1>
-    <div class="row"><span>코인</span><b id="money">0</b></div>
-    <div class="row"><span>레벨</span><b id="level">1</b></div>
-    <div class="bar"><i id="level-bar"></i></div>
-    <div class="row"><span>허기</span><b id="hunger">0</b></div>
-    <div class="bar"><i id="hunger-bar" class="warm"></i></div>
-    <div class="row"><span>피로</span><b id="fatigue">0</b></div>
-    <div class="bar"><i id="fatigue-bar" class="cool"></i></div>
-    <div class="row"><span>행동</span><b id="action">-</b></div>
-    <p class="hint">가구를 클릭하면 지시할 수 있어요</p>
+    <h1>이모트 <span id="personality" class="badge"></span></h1>
+    <div class="row"><span>호감도</span><b id="level">Lv 1</b></div>
+    <div class="bar"><i id="level-bar" class="love"></i></div>
+    <div class="row small"><span></span><span id="xp">0 / 60</span></div>
+    <div class="row"><span>사회적 접촉</span><b id="social">0</b></div>
+    <div class="bar"><i id="social-bar" class="warm"></i></div>
+    <div class="row"><span>정서적 교감</span><b id="bond">0</b></div>
+    <div class="bar"><i id="bond-bar" class="cool"></i></div>
+    <div class="row"><span>에너지</span><b id="energy" class="energy">●●●</b></div>
+    <div class="row small"><span></span><span id="energy-timer">가득</span></div>
+    <button id="worry-button" class="worry-button" type="button">오늘의 고민 듣기 (3/3)</button>
+    <p class="hint">이모트를 누르면 먼저 말을 걸어요 (에너지 1)</p>
   </section>
-  <div id="face-frame" class="face-frame"></div>
 
   <section class="panel emotion">
     <div class="headline"><b id="emotion-name">평온</b> <span id="emotion-intensity">score 0.00</span></div>
@@ -54,6 +46,7 @@
     <div class="metric" data-intensity="4"><span>4 압도적</span><div class="bar"><i></i></div><b>0.000</b></div>
 
     <h2>meta</h2>
+    <div class="row"><span>source</span><b id="source">-</b></div>
     <div class="row"><span>confidence</span><b id="confidence">-</b></div>
     <div class="row"><span>latency</span><b id="latency">-</b></div>
     <div class="row"><span>requests</span><b id="requests">0</b></div>
@@ -64,9 +57,16 @@
     </details>
   </section>
 
-  <form class="chat" onsubmit="return false">
-    <input id="message" maxlength="200" autocomplete="off" placeholder="캐릭터에게 말 걸기…">
-    <span id="judge-status" class="status">입력하면 Jev가 감정을 판단해요</span>
+  <div id="bubble" class="bubble" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <form id="chat" class="chat">
+    <div id="worry" class="worry" hidden></div>
+    <div class="chat-row">
+      <input id="message" maxlength="200" autocomplete="off" placeholder="이모트에게 말 걸기…">
+      <button type="submit">보내기</button>
+    </div>
+    <span id="judge-status" class="status">입력하면 이모트가 바로 반응해요</span>
   </form>
 
   <script type="module" src="src/main.js"></script>
