@@ -34,15 +34,19 @@ export const REWARDS = {
 export const HURT_THRESHOLD = 0.6;
 
 export const WORRIES_PER_DAY = 3;
+export const WORRY_CHANCE = 0.35; // a touch brings today's worry instead of a line, while worries are left
 export const HISTORY_SIZE = 6;
 export const FACE_HOLD_MS = 6000; // a reaction stays on the face this long, then eases back to neutral
+export const AFTER_BUBBLE_HOLD_MS = 1500; // Emot keeps the line's face briefly after its bubble closes
+export const TYPE_MS = 38; // visual-novel typing speed per character
+export const TYPE_PAUSE_MS = 220; // extra beat after . , ? ! …
 
 // Order matches the Jev criteria in worker/index.js and the panel rows.
 export const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
 
 // ---- 2D face rig ----
 
-export const PAPER = '#f4f0e6'; // page and skin colour; the white drawing is multiplied onto it
+export const PAPER = '#ecede7'; // newsprint; must match --paper in style.css. The white drawing is multiplied onto it
 export const INK = '#151515';
 
 // Positions measured on assets/emot-base.webp (1086 x 1448, eyes closed in the drawing).
@@ -58,7 +62,8 @@ export const CHARACTER = {
   mouth: { x: 553, y: 263 },
   cheeks: [{ x: 484, y: 248 }, { x: 612, y: 236 }],
   hit: { x0: 340, y0: 20, x1: 745, y1: 1440 },
-  bubble: { x: 680, y: 170 }, // top-left corner of the speech bubble, beside the head
+  bubble: { x: 700, y: 150 }, // where the speech bubble's tail points, beside the head
+  screenHeight: 0.74, // share of the free vertical space the drawing fills
 };
 
 export const BREATH_SECONDS = 3.6;

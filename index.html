@@ -4,69 +4,81 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EMOT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="stage"></canvas>
+  <canvas id="stage" aria-label="이모트. 누르면 먼저 말을 걸어요"></canvas>
   <div id="loading" class="loading">이모트를 깨우는 중…</div>
 
-  <section class="panel stats">
-    <h1>이모트 <span id="personality" class="badge"></span></h1>
-    <div class="row"><span>호감도</span><b id="level">Lv 1</b></div>
-    <div class="bar"><i id="level-bar" class="love"></i></div>
-    <div class="row small"><span></span><span id="xp">0 / 60</span></div>
-    <div class="row"><span>사회적 접촉</span><b id="social">0</b></div>
-    <div class="bar"><i id="social-bar" class="warm"></i></div>
-    <div class="row"><span>정서적 교감</span><b id="bond">0</b></div>
-    <div class="bar"><i id="bond-bar" class="cool"></i></div>
-    <div class="row"><span>에너지</span><b id="energy" class="energy">●●●</b></div>
-    <div class="row small"><span></span><span id="energy-timer">가득</span></div>
-    <button id="worry-button" class="worry-button" type="button">오늘의 고민 듣기 (3/3)</button>
-    <p class="hint">이모트를 누르면 먼저 말을 걸어요 (에너지 1)</p>
+  <section class="status" aria-label="이모트 상태">
+    <h1 class="name">이모트 <small id="personality"></small></h1>
+
+    <div class="hearts" aria-label="호감도">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <p class="caption"><b id="level">Lv 1</b> <span id="xp"></span></p>
+
+    <div class="need">
+      <span>사회적 접촉</span>
+      <div class="meter social"><i id="social-bar"></i></div>
+      <b id="social">0</b>
+    </div>
+    <div class="need">
+      <span>정서적 교감</span>
+      <div class="meter bond"><i id="bond-bar"></i></div>
+      <b id="bond">0</b>
+    </div>
+
+    <div class="energy" aria-label="에너지">
+      <span class="pips"><i></i><i></i><i></i></span>
+      <span id="energy-timer"></span>
+    </div>
   </section>
 
-  <section class="panel emotion">
-    <div class="headline"><b id="emotion-name">평온</b> <span id="emotion-intensity">score 0.00</span></div>
-
-    <h2>emotion</h2>
-    <div class="metric" data-emotion="neutral"><span>neutral</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="happy"><span>happy</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="sad"><span>sad</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="angry"><span>angry</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="surprised"><span>surprised</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="fear"><span>fear</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="disgust"><span>disgust</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-emotion="contempt"><span>contempt</span><div class="bar"><i></i></div><b>0.000</b></div>
-
-    <h2>intensity</h2>
-    <div class="metric" data-intensity="0"><span>0 거의 없음</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-intensity="1"><span>1 약함</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-intensity="2"><span>2 분명함</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-intensity="3"><span>3 강함</span><div class="bar"><i></i></div><b>0.000</b></div>
-    <div class="metric" data-intensity="4"><span>4 압도적</span><div class="bar"><i></i></div><b>0.000</b></div>
-
-    <h2>meta</h2>
-    <div class="row"><span>source</span><b id="source">-</b></div>
-    <div class="row"><span>confidence</span><b id="confidence">-</b></div>
-    <div class="row"><span>latency</span><b id="latency">-</b></div>
-    <div class="row"><span>requests</span><b id="requests">0</b></div>
-    <div class="row"><span>failures</span><b id="failures">0</b></div>
+  <section class="feelings" aria-label="감정 수치">
+    <p class="feeling-now"><b id="emotion-name">평온</b> <span id="emotion-intensity"></span></p>
+    <div class="metric" data-emotion="neutral"><span>평온</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="happy"><span>기쁨</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="sad"><span>슬픔</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="angry"><span>분노</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="surprised"><span>놀람</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="fear"><span>두려움</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="disgust"><span>혐오</span><div class="meter"><i></i></div><b>0.00</b></div>
+    <div class="metric" data-emotion="contempt"><span>경멸</span><div class="meter"><i></i></div><b>0.00</b></div>
     <details>
-      <summary>원본 응답 JSON</summary>
-      <pre id="raw-json">-</pre>
+      <summary>강도와 판정 정보</summary>
+      <div class="metric" data-intensity="0"><span>거의 없음</span><div class="meter"><i></i></div><b>0.00</b></div>
+      <div class="metric" data-intensity="1"><span>약함</span><div class="meter"><i></i></div><b>0.00</b></div>
+      <div class="metric" data-intensity="2"><span>분명함</span><div class="meter"><i></i></div><b>0.00</b></div>
+      <div class="metric" data-intensity="3"><span>강함</span><div class="meter"><i></i></div><b>0.00</b></div>
+      <div class="metric" data-intensity="4"><span>압도적</span><div class="meter"><i></i></div><b>0.00</b></div>
+      <dl class="meta">
+        <dt>판정 대상</dt><dd id="source">-</dd>
+        <dt>확신도</dt><dd id="confidence">-</dd>
+        <dt>응답 시간</dt><dd id="latency">-</dd>
+        <dt>요청</dt><dd id="requests">0</dd>
+        <dt>실패</dt><dd id="failures">0</dd>
+      </dl>
+      <pre id="raw-json"></pre>
     </details>
   </section>
 
-  <div id="bubble" class="bubble" hidden></div>
-  <div id="toast" class="toast" hidden></div>
+  <div id="bubble" class="bubble" role="button" tabindex="0" hidden>
+    <span id="bubble-name" class="bubble-name">이모트</span>
+    <p id="bubble-text" class="bubble-text" aria-live="polite"></p>
+  </div>
+  <p id="toast" class="toast" hidden></p>
 
   <form id="chat" class="chat">
-    <div id="worry" class="worry" hidden></div>
-    <div class="chat-row">
-      <input id="message" maxlength="200" autocomplete="off" placeholder="이모트에게 말 걸기…">
+    <p id="worry" class="worry" hidden></p>
+    <div class="chat-line">
+      <input id="message" maxlength="200" autocomplete="off" placeholder="이모트에게 말 걸기" aria-label="이모트에게 할 말">
       <button type="submit">보내기</button>
     </div>
-    <span id="judge-status" class="status">입력하면 이모트가 바로 반응해요</span>
+    <p id="judge-status" class="status-line">말을 쓰는 동안 이모트 표정이 바뀌어요</p>
   </form>
 
   <script type="module" src="src/main.js"></script>

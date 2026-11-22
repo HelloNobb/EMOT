@@ -1,8 +1,7 @@
 import { CHARACTER, PAPER, INK, BREATH_SECONDS, BREATH_SCALE } from './config.js';
 
 const LINE = 2.6; // pen width in drawing pixels, matched to the artwork's ink lines
-const BOTTOM_SPACE = 120; // CSS px kept free for the chat box
-const TOP_SPACE = 12;
+const BOTTOM_SPACE = 150; // CSS px kept free for the chat line
 
 export function loadImage(url) {
   return new Promise((resolve, reject) => {
@@ -28,9 +27,10 @@ export class CharacterView {
     this.ratio = ratio;
     this.canvas.width = Math.round(window.innerWidth * ratio);
     this.canvas.height = Math.round(window.innerHeight * ratio);
-    this.scale = Math.max(0.1, (window.innerHeight - TOP_SPACE - BOTTOM_SPACE) / CHARACTER.height);
+    const free = window.innerHeight - BOTTOM_SPACE;
+    this.scale = Math.max(0.1, (free * CHARACTER.screenHeight) / CHARACTER.height);
     this.offsetX = window.innerWidth / 2 - CHARACTER.centerX * this.scale;
-    this.offsetY = TOP_SPACE;
+    this.offsetY = (free - CHARACTER.height * this.scale) * 0.8; // low in the free space, feet near the chat line
   }
 
   toScreen({ x, y }) {
@@ -177,7 +177,7 @@ function withAlpha(context, weight, draw) {
 
 function drawBlush(context, weight) {
   withAlpha(context, weight, () => {
-    context.strokeStyle = '#e07b7b';
+    context.strokeStyle = '#ff4f9a'; // the page's riso pink
     context.lineWidth = LINE * 0.8;
     for (const cheek of CHARACTER.cheeks) {
       inFaceSpace(context, cheek, () => {

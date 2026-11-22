@@ -1,20 +1,19 @@
-import { PERSONALITIES, ENERGY_MAX, WORRIES_PER_DAY } from './config.js';
+import { PERSONALITIES, TYPE_MS, TYPE_PAUSE_MS } from './config.js';
 
 // Only writes into elements that index.html already declares.
 const element = (id) => document.getElementById(id);
 
 const stats = {
   personality: element('personality'),
+  hearts: [...document.querySelectorAll('.hearts i')],
   level: element('level'),
-  levelBar: element('level-bar'),
   xp: element('xp'),
   social: element('social'),
   socialBar: element('social-bar'),
   bond: element('bond'),
   bondBar: element('bond-bar'),
-  energy: element('energy'),
+  pips: [...document.querySelectorAll('.pips i')],
   energyTimer: element('energy-timer'),
-  worryButton: element('worry-button'),
 };
 
 const formatTimer = (ms) => {
@@ -23,26 +22,25 @@ const formatTimer = (ms) => {
 };
 
 export function showStats(game, now) {
-  const { personality, social, bond, energy, worry } = game.state;
-  const { level, xp, from, to } = game.levelProgress();
+  const { personality, social, bond, energy } = game.state;
+  const { level, xp, to } = game.levelProgress();
   stats.personality.textContent = PERSONALITIES[personality];
+  // One heart per level: earned levels solid, the one being filled in screentone.
+  stats.hearts.forEach((heart, index) => {
+    heart.className = index < level - 1 ? 'full' : index === level - 1 ? 'now' : '';
+  });
   stats.level.textContent = `Lv ${level}`;
-  stats.levelBar.style.width = to === null ? '100%' : `${((xp - from) / (to - from)) * 100}%`;
-  stats.xp.textContent = to === null ? 'MAX' : `${Math.floor(xp)} / ${to}`;
+  stats.xp.textContent = to === null ? '마음을 다 열었어요' : `다음 하트까지 ${Math.ceil(to - xp)}`;
   stats.social.textContent = Math.round(social);
   stats.socialBar.style.width = `${social}%`;
   stats.bond.textContent = Math.round(bond);
   stats.bondBar.style.width = `${bond}%`;
-  stats.energy.textContent = '●'.repeat(energy) + '○'.repeat(ENERGY_MAX - energy);
+  stats.pips.forEach((pip, index) => pip.classList.toggle('on', index < energy));
   const timer = game.energyTimer(now);
-  stats.energyTimer.textContent = timer === null ? '가득' : `다음 충전 ${formatTimer(timer)}`;
-  stats.worryButton.disabled = !game.canAskWorry;
-  stats.worryButton.textContent = worry
-    ? '고민에 대답해 주세요'
-    : `오늘의 고민 듣기 (${game.worriesLeft}/${WORRIES_PER_DAY})`;
+  stats.energyTimer.textContent = timer === null ? '에너지 가득' : `${formatTimer(timer)} 뒤 하나 더`;
 }
 
-// ---- emotion panel ----
+// ---- feelings readout ----
 
 const EMOTION_LABELS = {
   neutral: '평온', happy: '기쁨', sad: '슬픔', angry: '분노',
@@ -68,12 +66,12 @@ const judge = {
 
 function fillRow({ bar, value }, probability) {
   bar.style.width = `${probability * 100}%`;
-  value.textContent = probability.toFixed(3);
+  value.textContent = probability.toFixed(2);
 }
 
-const formatConfidence = (value) => (Number.isFinite(value) ? value.toFixed(3) : '-');
+const formatConfidence = (value) => (Number.isFinite(value) ? value.toFixed(2) : '-');
 
-// source: what produced this reading ("입력 중", "보낸 말", "이모트 대사"...).
+// source: what produced this reading ("쓰는 중", "보낸 말", "이모트 대사"...).
 export function showEmotion(result, source) {
   for (const entry of emotionRows) {
     const name = entry.row.dataset.emotion;
@@ -86,7 +84,7 @@ export function showEmotion(result, source) {
     entry.row.classList.toggle('top', level === topLevel);
   });
   judge.name.textContent = EMOTION_LABELS[result.emotion];
-  judge.intensity.textContent = `${INTENSITY_LABELS[topLevel]} · score ${result.score.toFixed(2)}`;
+  judge.intensity.textContent = INTENSITY_LABELS[topLevel];
   judge.source.textContent = source;
   judge.confidence.textContent =
     `${formatConfidence(result.confidence.emotion)} / ${formatConfidence(result.confidence.intensity)}`;
@@ -96,49 +94,116 @@ export function showEmotion(result, source) {
 export function showJudgeStats({ requests, failures, latency }) {
   judge.requests.textContent = requests;
   judge.failures.textContent = failures;
-  judge.latency.textContent = latency === null ? '-' : `${latency} ms`;
+  judge.latency.textContent = latency === null ? '-' : `${latency}ms`;
 }
 
 const STATUS_TEXT = {
-  pending: '이모트가 듣는 중…',
+  pending: '',
   idle: '이모트가 반응했어요',
-  cleared: '입력하면 이모트가 바로 반응해요',
+  cleared: '말을 쓰는 동안 이모트 표정이 바뀌어요',
 };
 
 export function showStatus(state, message) {
-  judge.status.className = `status ${state}`;
-  judge.status.textContent = state === 'error' ? `실패: ${message}` : (message ?? STATUS_TEXT[state]);
+  judge.status.className = `status-line ${state}`;
+  judge.status.textContent = state === 'error' ? `보내지 못했어요: ${message}` : (message ?? STATUS_TEXT[state]);
 }
 
-// ---- bubble, toast, worry card ----
+// ---- speech bubble: typed out like a visual novel; click to finish, click again to close ----
 
 const bubble = element('bubble');
-const toast = element('toast');
-const worryCard = element('worry');
-const input = element('message');
-let bubbleTimer = 0;
-let toastTimer = 0;
+const bubbleName = element('bubble-name');
+const bubbleText = element('bubble-text');
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let typing = null; // { text, shown, timer } while characters are still appearing
+let onBubbleClosed = () => {};
 
 export function placeBubble({ x, y }) {
-  bubble.style.left = `${x}px`;
-  bubble.style.top = `${y}px`;
+  // Keep the whole bubble on screen; the tail stays on its left edge.
+  const width = bubble.offsetWidth || 330;
+  bubble.style.left = `${Math.max(16, Math.min(x + 14, window.innerWidth - width - 16))}px`;
+  bubble.style.top = `${Math.max(16, y - 30)}px`;
 }
 
-// ms = 0 keeps it up until replaced (used for the "…" while a line is loading).
-export function showBubble(text, ms, loading = false) {
-  clearTimeout(bubbleTimer);
-  bubble.textContent = text;
-  bubble.classList.toggle('loading', loading);
+export function setBubbleClosedHandler(handler) {
+  onBubbleClosed = handler;
+}
+
+export function showThinking() {
+  stopTyping();
+  bubbleName.textContent = '이모트';
+  bubbleText.textContent = '';
+  bubble.className = 'bubble thinking';
   bubble.hidden = false;
-  if (ms > 0) bubbleTimer = setTimeout(() => { bubble.hidden = true; }, ms);
+}
+
+export function showLine(text, name = '이모트') {
+  stopTyping();
+  bubbleName.textContent = name;
+  bubble.className = 'bubble';
+  bubble.hidden = false;
+  if (reducedMotion.matches) {
+    finishTyping(text);
+    return;
+  }
+  typing = { text, shown: 0, timer: 0 };
+  bubbleText.textContent = '';
+  typeNext();
+}
+
+function typeNext() {
+  const character = typing.text[typing.shown];
+  typing.shown++;
+  bubbleText.textContent = typing.text.slice(0, typing.shown);
+  if (typing.shown >= typing.text.length) {
+    finishTyping(typing.text);
+    return;
+  }
+  const pause = /[.,?!…]/.test(character) ? TYPE_PAUSE_MS : 0;
+  typing.timer = setTimeout(typeNext, TYPE_MS + pause);
+}
+
+function finishTyping(text) {
+  stopTyping();
+  bubbleText.textContent = text;
+  bubble.classList.add('done');
+}
+
+function stopTyping() {
+  if (typing) clearTimeout(typing.timer);
+  typing = null;
 }
 
 export function hideBubble() {
-  clearTimeout(bubbleTimer);
+  stopTyping();
   bubble.hidden = true;
 }
 
+function advanceBubble() {
+  if (bubble.classList.contains('thinking')) return; // nothing to skip while waiting
+  if (typing) {
+    finishTyping(typing.text);
+    return;
+  }
+  hideBubble();
+  onBubbleClosed();
+}
+
+bubble.addEventListener('click', advanceBubble);
+bubble.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  advanceBubble();
+});
+
+// ---- toast and worry line ----
+
+const toast = element('toast');
+const worryLine = element('worry');
+const input = element('message');
+let toastTimer = 0;
+
 export function showToast(text) {
+  if (!text) return;
   clearTimeout(toastTimer);
   toast.textContent = text;
   toast.hidden = false;
@@ -147,19 +212,20 @@ export function showToast(text) {
 
 const signed = (value) => `${value > 0 ? '+' : ''}${Math.round(value)}`;
 
-// Turns Game.change() results into "접촉 +4 · 교감 +9 · 호감도 +6".
+// Turns Game.change() results into "접촉 +4, 교감 +9, 호감도 +6".
 export function describeChange({ social, bond, xp, levelChange }) {
   const parts = [];
   if (Math.round(social)) parts.push(`접촉 ${signed(social)}`);
   if (Math.round(bond)) parts.push(`교감 ${signed(bond)}`);
   if (Math.round(xp)) parts.push(`호감도 ${signed(xp)}`);
-  if (levelChange > 0) parts.push('레벨 업!');
-  if (levelChange < 0) parts.push('레벨 다운…');
-  return parts.join(' · ');
+  if (levelChange > 0) parts.push('하트가 하나 늘었어요');
+  if (levelChange < 0) parts.push('하트가 하나 줄었어요');
+  return parts.join(', ');
 }
 
 export function showWorry(text) {
-  worryCard.hidden = !text;
-  worryCard.textContent = text ? `오늘의 고민: ${text}` : '';
-  input.placeholder = text ? '고민에 대답해 주기…' : '이모트에게 말 걸기…';
+  worryLine.hidden = !text;
+  worryLine.textContent = text ?? '';
+  input.placeholder = text ? '고민에 대답해 주기' : '이모트에게 말 걸기';
 }
+

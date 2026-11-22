@@ -1,11 +1,14 @@
+/* A printed manga page: newsprint, black ink, two risograph spot inks, screentone fills. */
 :root {
-  --paper: #f4f0e6;
-  --panel: rgba(255, 255, 255, 0.78);
-  --ink: #151515;
-  --muted: #8a857a;
-  --line: rgba(21, 21, 21, 0.85);
-  --accent: #e08a2e;
-  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --paper: #ecede7;
+  --ink: #000;
+  --graphite: #8c8e88;
+  --pink: #ff4f9a;
+  --blue: #3255e0;
+  --serif: 'Gowun Batang', 'AppleMyungjo', serif;
+  --sans: 'Gowun Dodum', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  /* screentone: one dot per 5px cell, coloured by currentColor */
+  --tone: radial-gradient(circle, currentColor 1.15px, transparent 1.35px) 0 0 / 5px 5px;
 }
 
 * { box-sizing: border-box; }
@@ -15,7 +18,8 @@ body {
   overflow: hidden;
   background: var(--paper);
   color: var(--ink);
-  font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  font-family: var(--sans);
+  font-size: 14px;
 }
 
 #stage {
@@ -24,222 +28,341 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  cursor: pointer;
 }
 
-.panel {
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+/* ---- status: type and tone directly on the page, no panel ---- */
+
+.status {
   position: fixed;
-  background: var(--panel);
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
+  top: 28px;
+  left: 32px;
+  width: 230px;
+}
+
+.name {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.name small {
+  display: block;
+  margin-top: 2px;
+  color: var(--graphite);
+  font-family: var(--sans);
   font-size: 13px;
-  backdrop-filter: blur(4px);
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
-.stats {
-  top: 16px;
-  left: 16px;
-  width: 210px;
-}
-
-.stats h1 {
-  margin: 0 0 6px;
-  font-size: 16px;
-}
-
-.badge {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  vertical-align: middle;
-}
-
-.row {
+.hearts {
   display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 18px;
+  color: var(--pink);
 }
 
-.row span { color: var(--muted); }
-.row b { font-family: var(--mono); font-weight: 600; }
-.row.small { margin-top: 2px; font-size: 11px; }
-
-.bar {
-  height: 6px;
-  margin-top: 4px;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  overflow: hidden;
+/* Hearts drawn with a mask so they can be outlined, toned (current level) or solid. */
+.hearts i {
+  width: 18px;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.14);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 16'%3E%3Cpath d='M9 15.5S1 10.4 1 5.2C1 2.6 3 1 5.1 1 6.9 1 8.2 2 9 3.3 9.8 2 11.1 1 12.9 1 15 1 17 2.6 17 5.2 17 10.4 9 15.5 9 15.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 16'%3E%3Cpath d='M9 15.5S1 10.4 1 5.2C1 2.6 3 1 5.1 1 6.9 1 8.2 2 9 3.3 9.8 2 11.1 1 12.9 1 15 1 17 2.6 17 5.2 17 10.4 9 15.5 9 15.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-.bar i {
+.hearts i.full { background: currentColor; }
+.hearts i.now { background: var(--tone); }
+
+.caption {
+  margin: 6px 0 0;
+  color: var(--graphite);
+  font-size: 12px;
+}
+
+.caption b { color: var(--ink); font-weight: 400; }
+
+.need {
+  display: grid;
+  grid-template-columns: 78px 1fr 26px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.need span { font-size: 13px; }
+.need b { font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* A meter is an ink baseline with a screentone fill above it. */
+.meter {
+  height: 13px;
+  border-bottom: 1.5px solid var(--ink);
+}
+
+.meter i {
   display: block;
   height: 100%;
   width: 0;
-  background: var(--accent);
+  background: var(--tone);
+  transition: width 0.4s ease-out;
 }
 
-.bar i.love { background: #e06a8a; }
-.bar i.warm { background: #e8a04f; }
-.bar i.cool { background: #6c8fe0; }
+.meter.social { color: var(--pink); }
+.meter.bond { color: var(--blue); }
 
-.energy { letter-spacing: 2px; color: #d9a400; }
-
-.worry-button {
-  width: 100%;
-  margin-top: 10px;
-  padding: 7px;
-  border: 1.5px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  font: inherit;
-  cursor: pointer;
+.energy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--graphite);
+  font-size: 12px;
 }
 
-.worry-button:disabled { color: var(--muted); cursor: default; }
+.pips { display: flex; gap: 6px; }
 
-.hint {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 11px;
+.pips i {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
 }
 
-.emotion {
-  top: 16px;
-  right: 16px;
-  width: min(250px, 30vw);
-  max-height: calc(100vh - 150px);
+.pips i.on { background: var(--ink); }
+
+/* ---- feelings: the Jev readout, quiet and small ---- */
+
+.feelings {
+  position: fixed;
+  top: 28px;
+  right: 32px;
+  width: 210px;
+  max-height: calc(100vh - 170px);
   overflow-y: auto;
-  font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
-.headline { font-size: 13px; }
-.headline b { color: var(--accent); }
-.headline span { color: var(--muted); }
+.feeling-now {
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+}
 
-.emotion h2 {
-  margin: 10px 0 4px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.feeling-now span {
+  color: var(--graphite);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .metric {
   display: grid;
-  grid-template-columns: 72px 1fr 40px;
-  gap: 6px;
+  grid-template-columns: 54px 1fr 32px;
+  gap: 8px;
   align-items: center;
-  margin-top: 3px;
-  color: var(--muted);
+  margin-top: 5px;
+  color: var(--graphite);
 }
 
-.metric .bar { margin-top: 0; }
-.metric b { text-align: right; font-weight: 500; }
+.metric .meter { height: 9px; border-bottom-width: 1px; border-color: var(--graphite); color: var(--ink); }
+.metric b { font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; }
 .metric.top { color: var(--ink); }
-.metric.top span { font-weight: 700; }
+.metric.top .meter { border-color: var(--ink); color: var(--pink); }
 
-.emotion details { margin-top: 10px; }
-.emotion summary { cursor: pointer; color: var(--muted); }
-.emotion pre {
-  max-height: 160px;
+.feelings details { margin-top: 12px; }
+.feelings summary { color: var(--graphite); cursor: pointer; }
+
+.meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 10px 0 0;
+  color: var(--graphite);
+}
+
+.meta dd { margin: 0; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+
+.feelings pre {
+  max-height: 140px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-all;
   font-size: 10px;
+  color: var(--graphite);
 }
 
-/* Speech bubble; main.js places its top-left (tail) corner beside the head, so long lines grow downward. */
+.feelings pre:empty { display: none; }
+
+/* ---- speech bubble: visual-novel line beside the head ---- */
+
 .bubble {
   position: fixed;
-  max-width: min(300px, 40vw);
-  padding: 10px 14px;
-  background: #fff;
+  width: min(330px, calc(100vw - 32px));
+  min-height: 74px;
+  padding: 12px 18px 16px;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 2px solid var(--ink);
-  border-radius: 4px 16px 16px 16px;
-  font-size: 15px;
-  line-height: 1.45;
-  pointer-events: none;
+  border-radius: 22px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.bubble.loading { color: var(--muted); }
+/* Tail pointing back at Emot's head: a square turned 45°, showing two of its borders. */
+.bubble::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 26px;
+  width: 15px;
+  height: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  border-left: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(45deg);
+}
+
+.bubble-name {
+  color: var(--pink);
+  font-size: 12px;
+}
+
+.bubble-text {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+/* Finished line: a blinking ▼ says "click to close". */
+.bubble.done .bubble-text::after {
+  content: '▼';
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--pink);
+  animation: blink 1s steps(2) infinite;
+}
+
+.bubble.thinking .bubble-text::after {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 1em;
+  vertical-align: -3px;
+  background: radial-gradient(circle, var(--ink) 2.2px, transparent 2.6px) 0 50% / 8px 8px repeat-x;
+  animation: think 1.2s steps(4) infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes think { 0% { width: 0; } 100% { width: 32px; } }
 
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 132px;
+  bottom: 142px;
   transform: translateX(-50%);
-  padding: 6px 12px;
+  margin: 0;
+  padding: 5px 14px;
   background: var(--ink);
-  color: #fff;
+  color: var(--paper);
   border-radius: 999px;
   font-size: 13px;
+  white-space: nowrap;
   pointer-events: none;
 }
+
+/* ---- chat: writing on a ruled line ---- */
 
 .chat {
   position: fixed;
   left: 50%;
-  bottom: 16px;
+  bottom: 26px;
   transform: translateX(-50%);
-  width: min(640px, calc(100vw - 32px));
-  padding: 10px 14px;
-  background: var(--panel);
-  border: 2px solid var(--ink);
-  border-radius: 12px;
+  width: min(560px, calc(100vw - 48px));
 }
 
 .worry {
-  margin-bottom: 8px;
-  padding: 6px 10px;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  font-size: 13px;
+  margin: 0 0 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--pink);
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.chat-row { display: flex; gap: 8px; }
+.chat-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 2px solid var(--ink);
+}
 
 .chat input {
   flex: 1;
+  min-width: 0;
+  padding: 10px 0;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--ink);
-  font: inherit;
-  font-size: 17px;
+  font-family: var(--serif);
+  font-size: 19px;
 }
 
+.chat input::placeholder { color: var(--graphite); }
+
 .chat button {
-  padding: 4px 12px;
-  border: 1.5px solid var(--ink);
-  border-radius: 8px;
-  background: #fff;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
   font: inherit;
   cursor: pointer;
 }
 
-.status {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
+.status-line {
+  margin: 8px 0 0;
+  color: var(--graphite);
   font-size: 12px;
-  text-align: right;
 }
 
-.status.pending::before { content: '● '; color: #e5b94a; }
-.status.error { color: #c94a35; }
+.status-line.pending::before { content: '듣는 중 '; color: var(--pink); }
+.status-line.error { color: #c2362b; }
 
 .loading {
   position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--muted);
+  color: var(--graphite);
+  font-family: var(--serif);
+}
+
+/* Mid-width screens: the speech bubble needs the space beside the head, so the readout keeps only the leading feeling. */
+@media (max-width: 1180px) {
+  .feelings > .metric:not(.top) { display: none; }
+}
+
+/* Narrow screens: status shrinks too, and the readout drops its details. */
+@media (max-width: 760px) {
+  .status { top: 16px; left: 16px; width: 170px; }
+  .name { font-size: 24px; }
+  .need { grid-template-columns: 64px 1fr 22px; }
+  .feelings { top: 16px; right: 16px; width: 130px; }
+  .feelings details { display: none; }
+  .feelings .metric.top { grid-template-columns: 1fr; }
+  .feelings .metric.top span, .feelings .metric.top b { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter i { transition: none; }
+  .bubble.done .bubble-text::after, .bubble.thinking .bubble-text::after { animation: none; }
 }
