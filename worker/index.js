@@ -16,9 +16,6 @@ const MAX_MEMORY = 8;
 const MAX_MEMORY_TEXT = 60;
 const MAX_LINE_TEXT = 120;
 
-// Keys must match EMOTIONS in src/config.js.
-const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
-
 const PERSONALITIES = {
   blunt: {
     jev: 'blunt, frank and sharp-tongued; teases harshly but secretly cares',
@@ -76,15 +73,12 @@ const LINE_RULES = [
   '- 위 성격과 말투를 끝까지 지킨다. 너는 AI라고 말하지 않는다.',
   '- 최근 대화에 나온 문장이나 표현을 되풀이하지 않는다.',
   '- 사회적 접촉이 낮으면 외로움을, 정서적 교감이 낮으면 서운함을 성격답게 드러낸다.',
-  '- emotion은 이 말을 할 때 네 감정, intensity는 0~4 강도.',
   '- memory는 플레이어에 대한 핵심 기억 목록(이름, 좋아하는 것, 중요한 일). 기존 목록을 유지하되 최근 대화에서 플레이어가',
   '  직접 말한 새 사실만 추가하고, 최대 8개, 각 30자 이내. 새 사실이 없으면 기존 목록을 그대로 돌려준다.',
 ].join('\n');
 
 const LineSchema = z.object({
   text: z.string(),
-  emotion: z.enum(EMOTIONS),
-  intensity: z.number(),
   memory: z.array(z.string()),
 });
 
@@ -261,11 +255,20 @@ const ROUTES = {
       '',
       `플레이어가 너를 톡 건드렸다. 이번엔 "${randomTopic()}"에서 출발해 먼저 한마디 해.`,
     ].join('\n'), LineSchema);
+    const text = line.text.slice(0, MAX_LINE_TEXT);
+    // Jev reads Emot's own line, so her face gets the same probability blend as a reaction to the player.
+    // (Claude's self-tagged emotion came back "neutral" for most lines.)
+    const reading = await askJev(env, `What the character Emot says right now (Korean): ${JSON.stringify(text)}\n${background(input.state)}`, {
+      emotion: {
+        ...EMOTION_QUESTION('what it is saying'),
+        instructions: 'Which emotion does the character show while saying this line? Judge from the words and tone.',
+      },
+      intensity: INTENSITY_QUESTION,
+    });
     return {
-      text: line.text.slice(0, MAX_LINE_TEXT),
-      emotion: line.emotion,
-      intensity: Math.max(0, Math.min(4, Math.round(line.intensity))),
+      text,
       memory: line.memory.filter((item) => item.trim()).slice(0, MAX_MEMORY).map((item) => item.slice(0, MAX_MEMORY_TEXT)),
+      answers: reading.answers,
     };
   },
 

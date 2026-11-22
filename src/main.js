@@ -1,4 +1,4 @@
-import { CHARACTER, EMOTIONS, FACE_HOLD_MS, SAVE_INTERVAL_SECONDS } from './config.js';
+import { CHARACTER, FACE_HOLD_MS, SAVE_INTERVAL_SECONDS } from './config.js';
 import { loadImage, CharacterView } from './character.js';
 import { Face } from './face.js';
 import { Game } from './game.js';
@@ -26,20 +26,6 @@ function react(result, source, holdMs = FACE_HOLD_MS) {
   face.setEmotion(result.probabilities, result.intensity);
   showEmotion(result, source);
   holdUntil = performance.now() + holdMs;
-}
-
-// Claude's line comes with one emotion and a 0..4 intensity; shape it like a Jev reading for the face and panel.
-function lineReading(line) {
-  const oneHot = (keys, pick) => keys.map((key) => (key === pick ? 1 : 0));
-  return {
-    emotion: line.emotion,
-    probabilities: Object.fromEntries(EMOTIONS.map((name) => [name, name === line.emotion ? 1 : 0])),
-    intensityProbabilities: oneHot([0, 1, 2, 3, 4], line.intensity),
-    score: line.intensity,
-    intensity: line.intensity / 4,
-    confidence: {},
-    raw: line,
-  };
 }
 
 function afterChange(change) {
@@ -114,7 +100,7 @@ canvas.addEventListener('click', async (event) => {
     const line = await post('/line', game.llmContext(now));
     const ms = 3500 + line.text.length * 90; // longer lines stay up longer
     showBubble(line.text, ms);
-    react(lineReading(line), '이모트 대사', ms);
+    react(parseAnswers(line), '이모트 대사', ms); // the Worker has Jev read her line
     afterChange(game.applyLine(line));
   } catch (error) {
     game.refundEnergy();
