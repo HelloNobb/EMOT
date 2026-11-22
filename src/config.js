@@ -31,7 +31,7 @@ export const MINING_BONUS_PER_LEVEL = 0.2;
 // Cloudflare Worker URL after deploying worker/ (see PLAN.md). Empty string = emotion judging is off.
 // Local worker: 'http://localhost:8787'
 export const PROXY_URL = 'https://emot-proxy.khj59105.workers.dev';
-export const JUDGE_DEBOUNCE_MS = 600; // wait this long after the last keystroke before asking Jev
+export const JUDGE_INTERVAL_MS = 400; // while typing, ask Jev at most this often (worker allows 180/min per IP)
 
 // Order matches the Jev question's criteria and the panel rows.
 export const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
@@ -48,7 +48,7 @@ export const EXPRESSION_MAP = {
   contempt: { relaxed: 0.5, angry: 0.35 },
 };
 export const INTENSITY_GAIN = 2; // expression strength = min(1, score/4 * gain); "clear" (2/4) already reads as full
-export const EXPRESSION_SMOOTHING = 6; // higher = faster approach to the target face
+export const EXPRESSION_SMOOTHING = 10; // higher = faster approach to the target face
 export const BLINK_MIN_SECONDS = 2.5;
 export const BLINK_MAX_SECONDS = 5.5;
 export const BLINK_SECONDS = 0.15;

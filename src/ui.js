@@ -84,7 +84,7 @@ export function showJudgeStats({ requests, failures, latency }) {
   judge.latency.textContent = latency === null ? '-' : `${latency} ms`;
 }
 
-const STATUS_TEXT = { pending: 'Jev가 판단하는 중…', idle: '판단 완료' };
+const STATUS_TEXT = { pending: 'Jev가 판단하는 중…', idle: '판단 완료', cleared: '입력하면 Jev가 감정을 판단해요' };
 
 export function showJudgeStatus(state, message) {
   judge.status.className = `status ${state}`;

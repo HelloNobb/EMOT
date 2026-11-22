@@ -24,7 +24,7 @@
 | `src/character.js` | VRM 로드, 이동, 절차적 포즈(뼈 회전) |
 | `src/sim.js` | 욕구·돈·레벨 상태, 행동 상태머신(idle→moving→using), 자율 선택, 저장 |
 | `src/face.js` | 감정 확률 → VRM 표정 가중치, 보간, 깜빡임 |
-| `src/emotion.js` | 디바운스, 프록시 호출, 오래된 응답 폐기, 응답 파싱, 통계 |
+| `src/emotion.js` | 스로틀, 프록시 호출, 오래된 응답 폐기, 응답 파싱, 통계 |
 | `src/ui.js` | DOM 갱신만. UI 구조는 `index.html`에 있다 |
 | `worker/index.js` | CORS·레이트리밋·입력 검증, 프롬프트(질문) 소유, TypeSafe 호출 |
 

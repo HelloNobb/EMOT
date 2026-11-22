@@ -1,6 +1,7 @@
 // Logic self-check without a browser: node tests/check.mjs
 import assert from 'node:assert/strict';
-import { parseAnswers } from '../src/emotion.js';
+import { parseAnswers, createEmotionJudge } from '../src/emotion.js';
+import { JUDGE_INTERVAL_MS } from '../src/config.js';
 import { Sim, levelForMoney, moneyForLevel } from '../src/sim.js';
 
 // Jev answer with an interpolated score
@@ -55,4 +56,28 @@ sim.update(0.1);
 sim.update(1);
 assert.ok(sim.state.money > 0.9 && sim.state.money < 1.1);
 
-console.log('all checks passed');
+
+// Throttle: first keystroke sends at once, a burst collapses into one more send with the newest text
+const sent = [];
+globalThis.fetch = async (url, options) => {
+  sent.push(JSON.parse(options.body).text);
+  return new Response(JSON.stringify({ answers: { emotion: { probabilities: { happy: 1 } }, intensity: { probabilities: { 0: 1 } } } }));
+};
+let cleared = 0;
+const judge = createEmotionJudge({
+  getContext: () => ({}), onResult() {}, onClear: () => cleared++, onStatus() {}, onStats() {},
+});
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+judge.queue('a');
+await wait(10);
+assert.deepEqual(sent, ['a']); // first keystroke goes out at once
+judge.queue('ab');
+judge.queue('abc');
+await wait(10);
+assert.deepEqual(sent, ['a']); // inside the interval: held
+await wait(JUDGE_INTERVAL_MS);
+assert.deepEqual(sent, ['a', 'abc']); // one send, newest text
+judge.queue('   ');
+assert.equal(cleared, 1);
+
+console.log('throttle checks passed');

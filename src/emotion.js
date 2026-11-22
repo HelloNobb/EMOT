@@ -1,4 +1,4 @@
-import { PROXY_URL, JUDGE_DEBOUNCE_MS, EMOTIONS } from './config.js';
+import { PROXY_URL, JUDGE_INTERVAL_MS, EMOTIONS } from './config.js';
 
 const INTENSITY_LEVELS = [0, 1, 2, 3, 4];
 
@@ -27,11 +27,13 @@ export function parseAnswers(data) {
   };
 }
 
-// Debounces typing, sends message + needs to the proxy, and drops answers that a newer message replaced.
-export function createEmotionJudge({ getContext, onResult, onStatus, onStats }) {
+// Throttles typing, sends message + needs to the proxy, and drops answers that a newer message replaced.
+export function createEmotionJudge({ getContext, onResult, onClear, onStatus, onStats }) {
   const stats = { requests: 0, failures: 0, latency: null };
   let latestId = 0;
   let timer = 0;
+  let pendingText = '';
+  let lastSentAt = -Infinity;
 
   async function judge(text) {
     const id = ++latestId;
@@ -60,15 +62,28 @@ export function createEmotionJudge({ getContext, onResult, onStatus, onStats }) 
   }
 
   return {
+    // Throttle, not debounce: the face reacts while the player is still typing.
+    // The first keystroke sends at once; later ones send at most every JUDGE_INTERVAL_MS, always with the newest text.
     queue(text) {
-      clearTimeout(timer);
-      const trimmed = text.trim();
-      if (!trimmed) return;
+      pendingText = text.trim();
+      if (!pendingText) {
+        clearTimeout(timer);
+        timer = 0;
+        latestId++; // answers still in flight are for text that no longer exists
+        onClear();
+        return;
+      }
       if (!PROXY_URL) {
         onStatus('error', 'PROXY_URL 미설정 (src/config.js)');
         return;
       }
-      timer = setTimeout(() => judge(trimmed), JUDGE_DEBOUNCE_MS);
+      if (timer) return; // a send is already scheduled and will pick up the newest text
+      const wait = Math.max(0, lastSentAt + JUDGE_INTERVAL_MS - performance.now());
+      timer = setTimeout(() => {
+        timer = 0;
+        lastSentAt = performance.now();
+        judge(pendingText);
+      }, wait);
     },
   };
 }

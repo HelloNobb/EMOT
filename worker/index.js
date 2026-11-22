@@ -17,7 +17,10 @@ const ACTION_DESCRIPTIONS = {
 const QUESTIONS = {
   emotion: {
     type: 'choice',
-    instructions: "Which emotion does the character feel right after reading the player's message, given its current condition?",
+    instructions:
+      "How does the character emotionally react to the player's message? Judge mainly from what the message says and its tone. " +
+      'The background condition may only nudge the reaction slightly and never overrides the message: ' +
+      'a kind message still gets a warm reaction from a tired character, and a short or unfinished message stays mostly neutral.',
     criteria: {
       neutral: 'calm, nothing in particular',
       happy: 'pleased, grateful, amused',
@@ -31,18 +34,21 @@ const QUESTIONS = {
   },
   intensity: {
     type: 'score',
-    instructions: 'How strongly does the character feel that emotion?',
+    instructions: "How strongly does the character react to the player's message?",
     criteria: ['barely any', 'weak', 'clear', 'strong', 'overwhelming'],
   },
 };
 
-function describeState({ text, hunger, fatigue, action, level }) {
+// Words instead of numbers: raw 80/100 values made Jev read every message as angry.
+const level3 = (value, low, mid, high) => (value < 40 ? low : value < 70 ? mid : high);
+
+function describeState({ text, hunger, fatigue, action }) {
+  const hungry = level3(hunger, 'not hungry', 'a bit hungry', 'quite hungry');
+  const tired = level3(fatigue, 'well rested', 'a bit tired', 'quite tired');
   return [
-    'A character lives alone in a small room. The player just typed a message to the character.',
-    `Condition: hunger ${hunger}/100, fatigue ${fatigue}/100 (higher means hungrier / more tired). ` +
-      `Currently ${ACTION_DESCRIPTIONS[action] ?? 'standing idle'}. Level ${level}.`,
-    'A hungry or exhausted character takes things more irritably; a fed, rested one more generously.',
-    `Player message (may be Korean): ${JSON.stringify(text)}`,
+    `Message the player just sent to the character (may be Korean, may be unfinished): ${JSON.stringify(text)}`,
+    `Background, secondary: the character lives alone in a small room, is ${hungry} and ${tired}, ` +
+      `and is currently ${ACTION_DESCRIPTIONS[action] ?? 'standing idle'}.`,
   ].join('\n');
 }
 

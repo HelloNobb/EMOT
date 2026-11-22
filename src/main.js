@@ -38,12 +38,16 @@ const sim = new Sim(character, room.spots);
 const face = new Face(vrm.expressionManager);
 document.getElementById('loading').remove();
 
-// Typing -> (debounce) -> Jev via proxy -> face target + panel. Needs travel along as context.
+// Typing -> (throttle) -> Jev via proxy -> face target + panel. Needs travel along as context.
 const judge = createEmotionJudge({
   getContext: () => sim.context(),
   onResult: (result) => {
     face.setEmotion(result.probabilities, result.intensity);
     showEmotion(result);
+  },
+  onClear: () => {
+    face.setEmotion({}, 0); // empty input = neutral face
+    showJudgeStatus('cleared');
   },
   onStatus: showJudgeStatus,
   onStats: showJudgeStats,
