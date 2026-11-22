@@ -58,7 +58,7 @@ export const CHARACTER = {
   mouth: { x: 553, y: 263 },
   cheeks: [{ x: 484, y: 248 }, { x: 612, y: 236 }],
   hit: { x0: 340, y0: 20, x1: 745, y1: 1440 },
-  bubble: { x: 690, y: 120 },
+  bubble: { x: 680, y: 170 }, // top-left corner of the speech bubble, beside the head
 };
 
 export const BREATH_SECONDS = 3.6;

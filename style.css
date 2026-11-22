@@ -156,17 +156,16 @@ body {
   font-size: 10px;
 }
 
-/* Speech bubble; main.js places its tail corner at the head. */
+/* Speech bubble; main.js places its top-left (tail) corner beside the head, so long lines grow downward. */
 .bubble {
   position: fixed;
   max-width: min(300px, 40vw);
   padding: 10px 14px;
   background: #fff;
   border: 2px solid var(--ink);
-  border-radius: 16px 16px 16px 4px;
+  border-radius: 4px 16px 16px 16px;
   font-size: 15px;
   line-height: 1.45;
-  transform: translateY(-100%);
   pointer-events: none;
 }
 
