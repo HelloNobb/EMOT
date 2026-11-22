@@ -184,6 +184,19 @@ function describeContext(state, hour, memory, history) {
   ].join('\n');
 }
 
+// Jev reads Emot's own words, so her face gets the same probability blend as a reaction to the player.
+// (Claude's self-tagged emotion came back "neutral" for most lines.)
+async function readOwnWords(env, state, text) {
+  const reading = await askJev(env, `What the character Emot says right now (Korean): ${JSON.stringify(text)}\n${background(state)}`, {
+    emotion: {
+      ...EMOTION_QUESTION('what it is saying'),
+      instructions: 'Which emotion does the character show while saying this? Judge from the words and tone.',
+    },
+    intensity: INTENSITY_QUESTION,
+  });
+  return reading.answers;
+}
+
 const randomTopic = () => TOPICS[Math.floor(Math.random() * TOPICS.length)];
 
 // Shared by /line and /worry: both are Claude calls built from the same context.
@@ -256,19 +269,10 @@ const ROUTES = {
       `플레이어가 너를 톡 건드렸다. 이번엔 "${randomTopic()}"에서 출발해 먼저 한마디 해.`,
     ].join('\n'), LineSchema);
     const text = line.text.slice(0, MAX_LINE_TEXT);
-    // Jev reads Emot's own line, so her face gets the same probability blend as a reaction to the player.
-    // (Claude's self-tagged emotion came back "neutral" for most lines.)
-    const reading = await askJev(env, `What the character Emot says right now (Korean): ${JSON.stringify(text)}\n${background(input.state)}`, {
-      emotion: {
-        ...EMOTION_QUESTION('what it is saying'),
-        instructions: 'Which emotion does the character show while saying this line? Judge from the words and tone.',
-      },
-      intensity: INTENSITY_QUESTION,
-    });
     return {
       text,
       memory: line.memory.filter((item) => item.trim()).slice(0, MAX_MEMORY).map((item) => item.slice(0, MAX_MEMORY_TEXT)),
-      answers: reading.answers,
+      answers: await readOwnWords(env, input.state, text),
     };
   },
 
@@ -283,7 +287,8 @@ const ROUTES = {
       `오늘의 고민을 플레이어에게 털어놔. "${randomTopic()}"과 관련된, 플레이어가 위로하거나 조언하거나 웃겨 줄 수 있는 고민.`,
       'text에는 고민만 1~2문장으로 쓴다.',
     ].join('\n'), WorrySchema);
-    return { text: worry.text.slice(0, MAX_LINE_TEXT) };
+    const text = worry.text.slice(0, MAX_LINE_TEXT);
+    return { text, answers: await readOwnWords(env, input.state, text) };
   },
 };
 
