@@ -142,6 +142,43 @@ const EMOTION_QUESTION = (subject) => ({
   },
 });
 
+// The character's true, inner reaction to the player's words: who it is and how close they are decide it,
+// not the words alone. (Claude then voices this feeling in the personality's own way; see /reply.)
+// Bands: stranger = Lv1-3, friend = Lv4-6, close = Lv7-10.
+const INNER_REACTIONS = {
+  blunt: [
+    'Barely knows the player. Sudden affection or sweet talk feels creepy or cringe to it (disgust or contempt). '
+      + 'Dry humour and plain honesty mildly please it. Insults make it angry or contemptuous.',
+    'Getting used to the player. Affection secretly pleases it but flusters it (happy with some surprise); '
+      + 'over-the-top sweetness is still cringe. Being teased back amuses it.',
+    'Close to the player. Affection makes it truly happy even though it hides it. '
+      + 'An insult from the player hurts (sad) more than it angers.',
+  ],
+  polite: [
+    'New to the player. Kind words delight it sincerely (happy). A sudden love confession surprises it (surprised and happy). '
+      + 'Rudeness hurts it quietly (sad) rather than angering it.',
+    'Friends with the player. Affection openly pleases it; teasing makes it laugh (happy); harsh words hurt (sad).',
+    'Close to the player. Affection moves it deeply (strongly happy). Being insulted feels like betrayal (sad, some anger).',
+  ],
+  anxious: [
+    'Barely knows the player. Affection makes it doubtful and uneasy (fear mixed with surprise): it fears being tricked. '
+      + 'Talk of leaving or of other people frightens it. Coldness makes it sad.',
+    'Getting attached. Affection makes it happy but insecure (happy mixed with fear). Talk of other people makes it jealous (angry or sad).',
+    'Close to the player. Affection makes it truly happy and calm. Talk of leaving still stings (sad or fear).',
+  ],
+};
+const levelBand = (level) => (level <= 3 ? 0 : level <= 6 ? 1 : 2);
+
+function innerQuestion(state, subject) {
+  return {
+    ...EMOTION_QUESTION(subject),
+    instructions:
+      `How does this character truly feel inside about ${subject}? Decide from the character's personality and how close it is to the player, `
+      + `not from the words alone: ${INNER_REACTIONS[state.personality][levelBand(state.level)]} `
+      + 'Hunger or tiredness only nudge the reaction slightly. A short or unfinished message stays mostly neutral.',
+  };
+}
+
 const INTENSITY_QUESTION = {
   type: 'score',
   instructions: 'How strongly does the character react?',
@@ -332,7 +369,7 @@ const ROUTES = {
     if (!state || !isText(body.text, MAX_TEXT)) return null;
     const message = `Message the player is typing to the character (may be Korean, may be unfinished): ${JSON.stringify(body.text.trim())}`;
     return askJev(env, `${message}\n${background(state)}`, {
-      emotion: EMOTION_QUESTION("the player's message"),
+      emotion: innerQuestion(state, "the player's message"),
       intensity: INTENSITY_QUESTION,
     });
   },
@@ -343,7 +380,7 @@ const ROUTES = {
     if (!state || !isText(body.text, MAX_TEXT)) return null;
     const message = `Message the player sent to the character (may be Korean): ${JSON.stringify(body.text.trim())}`;
     return askJev(env, `${message}\n${background(state)}`, {
-      emotion: EMOTION_QUESTION("the player's message"),
+      emotion: innerQuestion(state, "the player's message"),
       intensity: INTENSITY_QUESTION,
       warmth: {
         type: 'score',
@@ -394,8 +431,8 @@ const ROUTES = {
     ];
     if (feeling) {
       prompt.push(
-        `이 말을 듣고 너는 지금 ${EMOTION_WORDS[feeling.emotion]}을 ${INTENSITY_WORDS[feeling.intensity]} 느낀다.`,
-        '대답에 이 감정이 분명히 드러나야 한다. 성격대로 표현하되(쑥스러움, 퉁명스러움 등), 다른 감정으로 읽히게 쓰지 않는다.',
+        `이 말을 듣고 너의 본심은 ${EMOTION_WORDS[feeling.emotion]}이고, ${INTENSITY_WORDS[feeling.intensity]} 느낀다.`,
+        '본심은 바꾸지 않는다. 겉으로는 성격대로 표현한다(독설가는 티 안 내려 하고, 불안한 아이는 확인하려 들고, 유쾌한 아이는 솔직하게). 그래도 듣는 사람이 본심을 짐작할 수 있게 쓴다.',
       );
     }
     return speak(env, input, prompt, feeling);
