@@ -21,6 +21,8 @@ const PLAYER_KEYS = ['likes', 'dislikes', 'people', 'plans'];
 const SELF_KEYS = ['likes', 'dislikes', 'treasures'];
 const MAX_PER_KEY = 6;
 const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
+const MAX_STORY = 30; // shared moments from level-up events
+const MAX_STORY_TEXT = 80;
 const MAX_LINE_TEXT = 120;
 
 const PERSONALITIES = {
@@ -266,13 +268,56 @@ async function readOwnWords(env, state, text) {
 const randomTopic = () => TOPICS[Math.floor(Math.random() * TOPICS.length)];
 
 // Shared by /line and /reply: both are Claude calls built from the same context.
+// What the player and Emot went through in level-up events, and how it changed her.
+function readStory(story) {
+  const { facts, flags } = story ?? {};
+  if (!Array.isArray(facts) || facts.length > MAX_STORY || !facts.every((fact) => isText(fact, MAX_STORY_TEXT))) return null;
+  if (!flags || typeof flags !== 'object') return null;
+  return { facts, casual: flags.casual === true, calm: flags.calm === true };
+}
+
+function describeStory(story) {
+  const lines = [`함께 겪은 일: ${story.facts.length ? story.facts.join(' / ') : '(아직 없음)'}`];
+  if (story.casual) lines.push('이제 플레이어에게 반말을 쓴다(허락받았다). 존댓말 규칙보다 이게 우선이다.');
+  if (story.calm) lines.push('불안이 많이 줄었다. 집착보다 믿음으로 말한다.');
+  return lines.join('\n');
+}
+
 function readLlmInput(body) {
   const state = readState(body);
+  const story = readStory(body?.story);
   const memory = readMemory(body?.memory);
   const history = readHistory(body?.history);
-  if (!state || !memory || !history || !isHour(body.hour) || !isText(body.name, MAX_NAME)) return null;
-  return { state, name: body.name.trim(), context: describeContext(state, body.hour, memory, history) };
+  if (!state || !memory || !history || !story || !isHour(body.hour) || !isText(body.name, MAX_NAME)) return null;
+  const context = `${describeContext(state, body.hour, memory, history)}\n${describeStory(story)}`;
+  return { state, name: body.name.trim(), context };
 }
+
+// ---- level-up events: the scenes are written in src/events.js, only the player's answer is judged here ----
+
+const noul = (instructions) => ({ question: { type: 'noul', instructions }, passes: (answer) => answer.noul >= 0.5 });
+const score = (instructions, criteria) => ({
+  question: { type: 'score', instructions, criteria },
+  passes: (answer) => answer.score >= 2,
+});
+const CARE = ['dismissive or cold', 'barely', 'somewhat', 'clearly and kindly', 'deeply and sincerely'];
+
+// Key: `${personality}.${level}`. Each describes what a passing answer looks like for that scene.
+const EVENT_JUDGES = {
+  'blunt.2': noul('The player promises, or clearly agrees, to come back tomorrow or keep visiting.'),
+  'blunt.3': noul('The player takes the rude nickname playfully or jokes back, rather than being genuinely hurt.'),
+  'blunt.5': score('How warmly does the player receive the character\'s awkward compliment?', CARE),
+  'blunt.7': noul('The player stays calm or answers maturely instead of getting angry back at the insult.'),
+  'polite.4': noul('The player\'s answer is wet socks (socks getting wet on a rainy day).'),
+  'polite.5': score('How well does the player comfort the character and accept that it does not want to smile today?', CARE),
+  'polite.7': score('How well does the player reassure the character that they are not bored and come willingly?', CARE),
+  'polite.10': noul('The player agrees to let the character drop formal speech and talk casually.'),
+  'anxious.4': score('How well does the player reassure the jealous character that it matters to them too?', CARE),
+  'anxious.5': score('How well does the player comfort the character after its nightmare that the player vanished?', CARE),
+  'anxious.6': score('How warmly does the player encourage the character as it practices letting the player go?', CARE),
+  'anxious.7': score('How sincerely does the player apologize or explain for leaving without a word?', CARE),
+  'anxious.9': score('How sincerely and personally does the player open up and share something private?', CARE),
+};
 
 // ---- routes ----
 
@@ -303,6 +348,16 @@ const ROUTES = {
       },
       hurtful: { type: 'noul', instructions: 'The message insults, mocks, threatens or deliberately hurts the character.' },
     });
+  },
+
+  // A level-up event asked the player something; did the answer pass?
+  async '/event'(body, env) {
+    const state = readState(body);
+    const judge = EVENT_JUDGES[`${body?.personality}.${body?.eventLevel}`];
+    if (!state || !judge || !isText(body.text, MAX_TEXT) || !isText(body.scene, MAX_EPISODE * 4)) return null;
+    const situation = `The character just said (Korean): ${JSON.stringify(body.scene)}\nThe player answered (may be Korean): ${JSON.stringify(body.text.trim())}`;
+    const data = await askJev(env, `${situation}\n${background(state)}`, { answer: judge.question });
+    return { passed: judge.passes(data.answers.answer), answer: data.answers.answer };
   },
 
   // Touching Emot: she opens a new topic of her own.
