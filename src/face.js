@@ -20,11 +20,12 @@ export class Face {
   }
 
   // Growth shows on the resting face: a wary stranger at level 1, relaxed and looking at you at 10.
-  setRest(level, personality) {
+  // calm: an event settled her nerves, so the personality's anxious look no longer applies.
+  setRest(level, personality, calm = false) {
     const t = (level - 1) / 9;
+    const extra = calm ? {} : PERSONALITY_FACE[personality];
     for (const name of PARAMS) {
-      this.rest[name] = FACE_REST_LOW[name] + (FACE_REST_HIGH[name] - FACE_REST_LOW[name]) * t
-        + (PERSONALITY_FACE[personality][name] ?? 0);
+      this.rest[name] = FACE_REST_LOW[name] + (FACE_REST_HIGH[name] - FACE_REST_LOW[name]) * t + (extra[name] ?? 0);
     }
   }
 

@@ -21,16 +21,34 @@ const formatTimer = (ms) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
+const EVENT_HINT = {
+  ready: '하트가 준비됐어요. 눌러서 이야기를 들어 보세요',
+  night: '하트가 준비됐어요. 밤에 무슨 일이 있을 것 같아요',
+  nextDay: '하트가 준비됐어요. 내일 다시 와 보세요',
+  retry: '오늘은 여기까지. 내일 다시 이야기해 보세요',
+};
+
+const eventMark = element('event-mark');
+
+export function placeEventMark({ x, y }) {
+  eventMark.style.left = `${x}px`;
+  eventMark.style.top = `${y}px`;
+}
+
 export function showStats(game, now) {
   const { personality, social, bond, energy } = game.state;
   const { level, xp, to } = game.levelProgress();
+  const pending = game.nextEvent(now);
+  eventMark.hidden = !pending || Boolean(pending.blocked);
   stats.personality.textContent = PERSONALITIES[personality];
   // One heart per level: earned levels solid, the one being filled in screentone.
   stats.hearts.forEach((heart, index) => {
     heart.className = index < level - 1 ? 'full' : index === level - 1 ? 'now' : '';
   });
   stats.level.textContent = `Lv ${level}`;
-  stats.xp.textContent = to === null ? '마음을 다 열었어요' : `다음 하트까지 ${Math.ceil(to - xp)}`;
+  stats.xp.textContent = pending
+    ? EVENT_HINT[pending.blocked ?? 'ready']
+    : to === null ? '마음을 다 열었어요' : `다음 하트까지 ${Math.ceil(to - xp)}`;
   stats.social.textContent = Math.round(social);
   stats.socialBar.style.width = `${social}%`;
   stats.bond.textContent = Math.round(bond);
@@ -234,15 +252,23 @@ export function describeChange({ social, bond, xp, levelChange }) {
 // ---- dialogs: memory, naming a new Emot, and the "meet a new Emot" confirmation ----
 
 const memoryDialog = element('memory-dialog');
+const input = element('message');
 const factSlots = [...document.querySelectorAll('[data-fact]')];
 const episodeItems = [...document.querySelectorAll('#episode-list li')];
+const storyItems = [...document.querySelectorAll('#story-list li')];
+const itemItems = [...document.querySelectorAll('#item-list li')];
 const historyItems = [...document.querySelectorAll('#history-list li')];
 const rerollDialog = element('reroll-dialog');
 const nameDialog = element('name-dialog');
 const nameInput = element('name-input');
 
 // Fills the fixed slots in index.html; empty slots hide themselves through CSS.
-export function openMemory({ memory, history }) {
+export function openMemory({ memory, history, story }) {
+  const facts = story.facts.slice(-storyItems.length);
+  storyItems.forEach((item, index) => { item.textContent = facts[index] ?? ''; });
+  itemItems.forEach((item, index) => { item.textContent = story.items[index] ?? ''; });
+  element('story-empty').hidden = facts.length > 0;
+  element('item-empty').hidden = story.items.length > 0;
   for (const slot of factSlots) {
     const [group, key] = slot.dataset.fact.split('.');
     const value = memory[group][key];
@@ -261,6 +287,12 @@ export function openMemory({ memory, history }) {
   element('episode-empty').hidden = memory.episodes.length > 0;
   element('history-empty').hidden = history.length > 0;
   memoryDialog.showModal();
+}
+
+// While an event waits for the player's answer, the chat line asks the scene's question.
+export function showAsk(ask) {
+  input.placeholder = ask ? ask.placeholder : '이모트에게 말 걸기';
+  showStatus('cleared', ask ? ask.prompt : undefined);
 }
 
 // A new Emot asks for a name. Closing without one keeps the default.

@@ -71,6 +71,8 @@
     </details>
   </section>
 
+  <span id="event-mark" class="event-mark" hidden aria-hidden="true">!</span>
+
   <div id="bubble" class="bubble" role="button" tabindex="0" hidden>
     <span id="bubble-name" class="bubble-name">이모트</span>
     <p id="bubble-text" class="bubble-text" aria-live="polite"></p>
@@ -103,6 +105,18 @@
       <dt>싫어함</dt><dd data-fact="self.dislikes"></dd>
       <dt>아끼는 것</dt><dd data-fact="self.treasures"></dd>
     </dl>
+
+    <h3>함께 겪은 일</h3>
+    <ol id="story-list" class="episode-list">
+      <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
+    </ol>
+    <p id="story-empty" class="empty">하트가 늘 때마다 여기 하나씩 쌓여요.</p>
+
+    <h3>받은 것</h3>
+    <ul id="item-list" class="item-list">
+      <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
+    </ul>
+    <p id="item-empty" class="empty">아직 받은 게 없어요.</p>
 
     <h3>기억하는 대화</h3>
     <ol id="episode-list" class="episode-list">

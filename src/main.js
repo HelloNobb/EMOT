@@ -1,4 +1,5 @@
-import { CHARACTER, PERSONALITIES, FACE_HOLD_MS, AFTER_BUBBLE_HOLD_MS, SAVE_INTERVAL_SECONDS } from './config.js';
+import { CHARACTER, PERSONALITIES, EMOTIONS, FACE_HOLD_MS, AFTER_BUBBLE_HOLD_MS, SAVE_INTERVAL_SECONDS } from './config.js';
+import { fillTemplate, josa } from './events.js';
 import { loadImage, CharacterView } from './character.js';
 import { Face } from './face.js';
 import { Game } from './game.js';
@@ -6,7 +7,7 @@ import { post } from './api.js';
 import { parseAnswers, createEmotionJudge } from './emotion.js';
 import {
   showStats, showEmotion, showJudgeStats, showStatus, placeBubble, setBubbleClosedHandler, showThinking, showLine,
-  hideBubble, showToast, describeChange, openMemory, confirmReroll, showName, askName,
+  hideBubble, showToast, describeChange, openMemory, confirmReroll, showName, askName, placeEventMark, showAsk,
 } from './ui.js';
 
 const UI_INTERVAL_SECONDS = 0.25; // DOM writes and the game clock don't need 60 Hz
@@ -16,7 +17,9 @@ const input = document.getElementById('message');
 const view = new CharacterView(canvas, await loadImage(CHARACTER.url));
 const game = new Game(Date.now());
 const face = new Face();
-face.setRest(game.level, game.state.personality);
+// Resting face follows the level, the personality, and whether an event has calmed her down.
+const refreshRest = () => face.setRest(game.level, game.state.personality, game.state.story.flags.calm === true);
+refreshRest();
 showName(game.state.name);
 document.getElementById('loading').remove();
 
@@ -39,13 +42,19 @@ function react(result, source, holdMs = FACE_HOLD_MS) {
   showEmotion(result, source);
   holdUntil = performance.now() + holdMs;
 }
+// Event scenes wait for each bubble to be closed before showing the next line.
+let waitForBubble = null;
 setBubbleClosedHandler(() => {
   holdUntil = performance.now() + AFTER_BUBBLE_HOLD_MS;
+  const next = waitForBubble;
+  waitForBubble = null;
+  next?.();
 });
 
 function afterChange(change) {
-  showToast(describeChange(change));
-  if (change.levelChange) face.setRest(game.level, game.state.personality);
+  const { name } = game.state;
+  showToast(change.eventReady ? `하트가 준비됐어요. ${name}${josa(name, '을', '를')} 눌러 보세요` : describeChange(change));
+  if (change.levelChange) refreshRest();
   game.save();
 }
 
@@ -57,6 +66,89 @@ function say(line, source) {
 
 // One Claude line at a time: a touch is ignored while a reply is still coming, and the other way round.
 let talking = false;
+
+// ---- level-up events: written scenes (src/events.js); a heart is earned only by finishing one ----
+
+let eventAsk = null; // { event, scene } while a scene waits for the player's typed answer
+
+// A scripted line's face: the written emotion at moderate strength, shaped like a Jev reading for the panel.
+function sceneReading(feel) {
+  return {
+    emotion: feel,
+    probabilities: Object.fromEntries(EMOTIONS.map((name) => [name, name === feel ? 1 : 0])),
+    intensityProbabilities: [0, 0, 1, 0, 0],
+    score: 2,
+    intensity: 0.5,
+    confidence: {},
+    raw: { scene: feel },
+  };
+}
+
+function playLines(lines, answer = '') {
+  return lines.reduce((previous, [feel, text]) => previous.then(() => new Promise((resolve) => {
+    waitForBubble = resolve;
+    showLine(fillTemplate(text, game.templateValues(answer)));
+    react(sceneReading(feel), '이벤트', Infinity);
+  })), Promise.resolve());
+}
+
+async function startEvent(event) {
+  talking = true;
+  await playLines(event.lines);
+  if (!event.ask) {
+    finishEvent(event, true, '');
+    return;
+  }
+  const scene = event.lines.map(([, text]) => fillTemplate(text, game.templateValues())).join(' ');
+  eventAsk = { event, scene };
+  showAsk(event.ask);
+  input.focus();
+  talking = false; // the chat line is open again, for the answer
+}
+
+async function answerEvent(text) {
+  const { event, scene } = eventAsk;
+  talking = true;
+  input.value = '';
+  judge.queue('');
+  let passed = true;
+  if (event.ask.kind === 'judge') {
+    showThinking();
+    try {
+      const result = await post('/event', { ...game.context(), eventLevel: event.level, scene, text });
+      passed = result.passed;
+    } catch (error) {
+      hideBubble();
+      input.value = text;
+      showStatus('error', error.message);
+      talking = false;
+      return;
+    }
+  }
+  eventAsk = null;
+  showAsk(null);
+  await playLines(passed ? event.pass ?? [] : event.fail ?? [], text);
+  finishEvent(event, passed, text);
+}
+
+function finishEvent(event, passed, answer) {
+  const result = game.completeEvent(event, passed, answer, Date.now());
+  game.save();
+  talking = false;
+  if (result.levelChange) {
+    refreshRest();
+    showToast(`하트가 하나 늘었어요: ${event.title}`);
+  } else {
+    showToast('오늘은 여기까지. 내일 다시 이야기해 보세요');
+  }
+  showStats(game, Date.now());
+}
+
+const EVENT_WAIT_HINT = {
+  night: '할 말이 있는 것 같아요. 밤에 다시 와 보세요',
+  nextDay: '할 말이 있는 것 같아요. 내일 다시 와 보세요',
+  retry: '오늘은 여기까지예요. 내일 다시 이야기해 보세요',
+};
 
 // ---- live reaction while typing (Jev /judge) ----
 
@@ -78,6 +170,10 @@ document.getElementById('chat').addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = input.value.trim();
   if (!text || talking) return;
+  if (eventAsk) {
+    answerEvent(text);
+    return;
+  }
   talking = true;
   input.value = '';
   judge.queue(''); // drop live readings still in flight for the text just sent
@@ -110,8 +206,15 @@ document.getElementById('chat').addEventListener('submit', async (event) => {
 // ---- touching Emot: she opens a new topic (Claude /line), costs 1 energy ----
 
 canvas.addEventListener('click', async (event) => {
-  if (talking || !view.hitTest(event.clientX, event.clientY)) return;
+  if (talking || eventAsk || !view.hitTest(event.clientX, event.clientY)) return;
   const now = Date.now();
+  // A ready heart's scene comes before anything else, and costs no energy.
+  const pending = game.nextEvent(now);
+  if (pending && !pending.blocked) {
+    startEvent(pending.event);
+    return;
+  }
+  if (pending) showToast(`${game.state.name}, ${EVENT_WAIT_HINT[pending.blocked]}`);
   if (!game.spendEnergy(now)) {
     showToast('에너지가 없어요. 충전되면 다시 눌러 주세요');
     return;
@@ -144,7 +247,9 @@ document.getElementById('reroll-button').addEventListener('click', () => {
     const now = Date.now();
     game.reroll(now);
     game.save();
-    face.setRest(game.level, game.state.personality);
+    eventAsk = null;
+    showAsk(null);
+    refreshRest();
     face.setEmotion({}, 0);
     holdUntil = 0;
     hideBubble();
@@ -163,6 +268,7 @@ function resize() {
   // On narrow screens the status block sits above Emot instead of beside her.
   view.resize(window.innerWidth < NARROW_SCREEN ? status.getBoundingClientRect().bottom + 8 : 0);
   placeBubble(view.toScreen(CHARACTER.bubble));
+  placeEventMark(view.toScreen(CHARACTER.eventMark));
 }
 window.addEventListener('resize', resize);
 resize();

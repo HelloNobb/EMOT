@@ -114,6 +114,54 @@ for (let round = 0; round < 10; round++) {
   assert.equal(game.state.history.length, 0);
 }
 
+// ---- level gate: XP stops at the next heart until its event is passed ----
+const day1 = new Date(2026, 10, 23, 15).getTime(); // 3 pm
+const night1 = new Date(2026, 10, 23, 22).getTime();
+const day2 = new Date(2026, 10, 24, 15).getTime();
+const gate = new Game(day1);
+gate.state.personality = 'polite';
+gate.state.social = 100;
+gate.state.bond = 100;
+for (let step = 0; step < 20; step++) gate.applySend(4, 0);
+assert.equal(gate.state.xp, LEVEL_XP[1]); // capped at the Lv2 threshold
+assert.equal(gate.level, 1);
+assert.ok(gate.eventReady);
+const lv2 = gate.nextEvent(day1);
+assert.equal(lv2.event.title, '방명록');
+assert.equal(lv2.blocked, null);
+gate.completeEvent(lv2.event, true, '민수', day1);
+assert.equal(gate.level, 2);
+assert.equal(gate.state.memory.player.name, '민수'); // the guestbook answer is the player's name
+assert.deepEqual(gate.state.story.items, ['방명록 첫 줄']);
+
+// a failed judged scene reopens tomorrow; 'nextDay' scenes wait for a later day than they became ready
+gate.state.unlocked = 4;
+gate.state.xp = LEVEL_XP[4];
+gate.state.eventReadyDay = new Date(day1).toDateString();
+assert.equal(gate.nextEvent(day1).event.title, '휴무일');
+assert.equal(gate.nextEvent(day1).blocked, 'nextDay');
+assert.equal(gate.nextEvent(day2).blocked, null);
+gate.completeEvent(gate.nextEvent(day2).event, false, '몰라', day2);
+assert.equal(gate.nextEvent(day2).blocked, 'retry');
+assert.equal(gate.level, 4);
+
+// 'night' scenes only open from 21:00
+gate.state.personality = 'blunt';
+gate.state.unlocked = 5;
+gate.state.xp = LEVEL_XP[5];
+gate.state.eventRetryDay = null;
+assert.equal(gate.nextEvent(day1).blocked, 'night');
+assert.equal(gate.nextEvent(night1).blocked, null);
+
+// persona flags from the last scene
+gate.state.personality = 'polite';
+gate.state.unlocked = 9;
+gate.state.xp = LEVEL_XP[9];
+gate.completeEvent(gate.nextEvent(night1).event, true, '그래', night1);
+assert.equal(gate.level, 10);
+assert.equal(gate.state.story.flags.casual, true);
+assert.equal(gate.eventReady, false); // nothing after the last heart
+
 // ---- face: emotion offsets move the target, and a blink closes the eyes ----
 const face = new Face();
 face.setRest(1, 'polite');

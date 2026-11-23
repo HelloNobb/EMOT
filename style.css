@@ -376,6 +376,24 @@ body {
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes think { 0% { width: 0; } 100% { width: 32px; } }
 
+/* "!" over Emot's head: a heart's event is ready to play. */
+.event-mark {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  color: var(--pink);
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: hop 1.4s ease-in-out infinite;
+}
+
+@keyframes hop { 50% { transform: translate(-50%, calc(-100% - 6px)); } }
+
+.item-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.item-list li { padding: 3px 10px; border: 1px solid var(--ink); border-radius: 999px; font-size: 13px; }
+.item-list li:empty { display: none; }
+
 .toast {
   position: fixed;
   left: 50%;
@@ -468,5 +486,5 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .meter i { transition: none; }
-  .bubble.done .bubble-text::after, .bubble.thinking .bubble-text::after { animation: none; }
+  .bubble.done .bubble-text::after, .bubble.thinking .bubble-text::after, .event-mark { animation: none; }
 }

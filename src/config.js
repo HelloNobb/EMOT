@@ -71,6 +71,7 @@ export const CHARACTER = {
   cheeks: [{ x: 484, y: 248 }, { x: 612, y: 236 }],
   hit: { x0: 340, y0: 20, x1: 745, y1: 1440 },
   bubble: { x: 690, y: 980 }, // speech bubble's top-left corner: beside the legs, well clear of the face
+  eventMark: { x: 630, y: 40 }, // the "!" shown above the head when a heart's event is ready
   screenHeight: 0.6, // share of the free vertical space the drawing fills
 };
 

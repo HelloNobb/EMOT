@@ -2,9 +2,18 @@ import {
   PERSONALITIES, START_NEEDS, DECAY_PER_HOUR, ENERGY_MAX, ENERGY_REGEN_MS, LEVEL_XP, REWARDS, HURT_THRESHOLD,
   HISTORY_SIZE, SAVE_KEY, DEFAULT_NAME, MAX_NAME, MEMORY_LIMITS,
 } from './config.js';
+import { EVENTS, fillTemplate } from './events.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_TEXT = 200;
+const MAX_LEVEL = LEVEL_XP.length;
+const MAX_STORY_FACTS = 30; // Worker accepts up to 30
+const MAX_STORY_TEXT = 80;
+const dayKey = (now) => new Date(now).toDateString(); // local calendar day
+const isNight = (now) => {
+  const hour = new Date(now).getHours();
+  return hour >= 21 || hour < 5;
+};
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
@@ -64,6 +73,21 @@ function freshState(now, except = null) {
     needsAt: now,
     history: [],
     memory: emptyMemory(),
+    ...freshProgress(now),
+  };
+}
+
+// Level gate and event bookkeeping, plus visit counting used by some scenes.
+function freshProgress(now, level = 1) {
+  return {
+    unlocked: level, // highest level whose event was passed; XP alone can't go past it
+    eventReadyDay: null, // day the next event became available ('nextDay' events wait for a later day)
+    eventRetryDay: null, // day the event was failed; it reopens the next day
+    story: { facts: [], items: [], flags: {} },
+    visitDays: 1,
+    lastVisitDay: dayKey(now),
+    lastSeenAt: now,
+    lastAwayHours: 0,
   };
 }
 
@@ -78,7 +102,11 @@ function isSave(saved) {
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (isSave(saved)) return { ...saved, name: saved.name ?? DEFAULT_NAME, memory: migrateMemory(saved.memory) };
+    if (isSave(saved)) {
+      // Saves from before the level gate keep the level they had earned.
+      const progress = saved.unlocked ? {} : freshProgress(Date.now(), levelForXp(saved.xp));
+      return { ...progress, ...saved, name: saved.name ?? DEFAULT_NAME, memory: migrateMemory(saved.memory) };
+    }
   } catch {
     // private mode or corrupted data: a fresh Emot instead of a crash
   }
@@ -92,11 +120,83 @@ export class Game {
     const saved = loadState();
     this.isNew = !saved; // a new Emot gets named before anything else
     this.state = saved ?? freshState(now);
+    this.countVisit(now);
     this.tick(now);
   }
 
+  // A new calendar day counts as a visit; the gap since the last save is how long Emot waited.
+  countVisit(now) {
+    const state = this.state;
+    state.lastAwayHours = Math.max(0, (now - state.lastSeenAt) / HOUR_MS);
+    if (state.lastVisitDay !== dayKey(now)) {
+      state.visitDays++;
+      state.lastVisitDay = dayKey(now);
+    }
+  }
+
   get level() {
-    return levelForXp(this.state.xp);
+    return Math.min(levelForXp(this.state.xp), this.state.unlocked);
+  }
+
+  // XP has reached the next heart, but the heart only comes after its event.
+  get eventReady() {
+    const { unlocked, xp } = this.state;
+    return unlocked < MAX_LEVEL && xp >= LEVEL_XP[unlocked];
+  }
+
+  // The scene waiting to be played, and why it can't start yet (null = it can).
+  nextEvent(now) {
+    if (!this.eventReady) return null;
+    const state = this.state;
+    const event = EVENTS[state.personality].find((candidate) => candidate.level === state.unlocked + 1);
+    let blocked = null;
+    if (state.eventRetryDay === dayKey(now)) blocked = 'retry';
+    else if (event.condition === 'night' && !isNight(now)) blocked = 'night';
+    else if (event.condition === 'nextDay' && state.eventReadyDay === dayKey(now)) blocked = 'nextDay';
+    return { event, blocked };
+  }
+
+  // Values for {key} slots in event lines.
+  templateValues(answer = '') {
+    const { name, memory, visitDays, lastAwayHours } = this.state;
+    return {
+      나: name,
+      이름: memory.player.name,
+      이름님: memory.player.name && `${memory.player.name}님`, // polite form; falls back to "손님" without doubling 님
+      좋아함: memory.player.likes.at(-1),
+      사람: memory.player.people.at(-1),
+      첫기억: memory.episodes[0]?.summary,
+      방문일: String(visitDays),
+      부재: lastAwayHours >= 1 ? String(Math.round(lastAwayHours)) : '',
+      답: answer,
+    };
+  }
+
+  // Passing gives the heart and the scene's rewards; failing reopens the scene tomorrow.
+  completeEvent(event, passed, answer, now) {
+    const state = this.state;
+    if (!passed) {
+      state.eventRetryDay = dayKey(now);
+      return { levelChange: 0 };
+    }
+    const before = this.level;
+    const values = this.templateValues(answer);
+    const { reward = {}, ask } = event;
+    const story = state.story;
+    if (ask?.memory === 'player.name' && answer) state.memory.player.name = answer.slice(0, MAX_NAME);
+    if (ask?.fact && answer) story.facts.push(`${ask.fact}: ${answer}`.slice(0, MAX_STORY_TEXT));
+    for (const fact of reward.facts ?? []) story.facts.push(fillTemplate(fact, values).slice(0, MAX_STORY_TEXT));
+    for (const item of reward.items ?? []) story.items.push(fillTemplate(item, values));
+    story.facts = story.facts.slice(-MAX_STORY_FACTS);
+    Object.assign(story.flags, reward.flags);
+    if (reward.memory) {
+      mergeFacts(state.memory.player, reward.memory.player, MEMORY_LIMITS.player);
+      mergeFacts(state.memory.self, reward.memory.self, MEMORY_LIMITS.self);
+    }
+    state.unlocked = event.level;
+    state.eventReadyDay = null;
+    state.eventRetryDay = null;
+    return { levelChange: this.level - before };
   }
 
   // Wipes this Emot and brings a new one with a different personality.
@@ -158,8 +258,11 @@ export class Game {
   }
 
   llmContext(now) {
-    const { name, memory, history } = this.state;
-    return { ...this.context(), name, hour: new Date(now).getHours(), memory, history };
+    const { name, memory, history, story } = this.state;
+    return {
+      ...this.context(), name, hour: new Date(now).getHours(), memory, history,
+      story: { facts: story.facts, flags: story.flags },
+    };
   }
 
   remember(who, text) {
@@ -176,13 +279,19 @@ export class Game {
     state.bond = clampPercent(state.bond + bond);
     // Full needs make every interaction count more: 0.5x empty .. 1.5x full.
     const gain = xp > 0 ? xp * (0.5 + (state.social + state.bond) / 200) : xp;
-    state.xp = Math.max(0, state.xp + gain);
+    const wasReady = this.eventReady;
+    // XP stops at the next heart until its event is passed.
+    const cap = state.unlocked < MAX_LEVEL ? LEVEL_XP[state.unlocked] : Infinity;
+    state.xp = Math.max(0, Math.min(cap, state.xp + gain));
+    const eventNowReady = !wasReady && this.eventReady;
+    if (eventNowReady) state.eventReadyDay = dayKey(Date.now());
     // Report what actually changed after clamping, not what was asked for.
     return {
       social: state.social - old.social,
       bond: state.bond - old.bond,
       xp: state.xp - old.xp,
       levelChange: this.level - before,
+      eventReady: eventNowReady,
     };
   }
 
@@ -225,6 +334,7 @@ export class Game {
   }
 
   save() {
+    this.state.lastSeenAt = Date.now();
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(this.state));
     } catch {
