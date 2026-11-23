@@ -1,12 +1,10 @@
 import {
   PERSONALITIES, START_NEEDS, DECAY_PER_HOUR, ENERGY_MAX, ENERGY_REGEN_MS, LEVEL_XP, REWARDS, HURT_THRESHOLD,
-  HISTORY_SIZE, SAVE_KEY,
+  HISTORY_SIZE, SAVE_KEY, DEFAULT_NAME, MAX_NAME, MEMORY_LIMITS,
 } from './config.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_TEXT = 200;
-const MAX_MEMORY = 8;
-const MAX_MEMORY_TEXT = 60;
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
 
@@ -16,11 +14,47 @@ export function levelForXp(xp) {
   return level;
 }
 
+// Key-value memory: facts about the player, what Emot said about herself, and conversations worth keeping.
+function emptyMemory() {
+  const lists = (limits) => Object.fromEntries(Object.keys(limits).map((key) => [key, []]));
+  return { player: { name: '', ...lists(MEMORY_LIMITS.player) }, self: lists(MEMORY_LIMITS.self), episodes: [] };
+}
+
+// Saves from before key-value memory held a plain list of sentences; keep them as conversations.
+function migrateMemory(memory) {
+  if (!Array.isArray(memory)) return memory;
+  const migrated = emptyMemory();
+  migrated.episodes = memory
+    .filter((item) => typeof item === 'string' && item.trim())
+    .slice(-MEMORY_LIMITS.episodes)
+    .map((summary) => ({ day: '', summary: summary.slice(0, 80), feeling: 'neutral', weight: 2 }));
+  return migrated;
+}
+
+const dayLabel = (now) => {
+  const date = new Date(now);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+};
+
+// Adds this turn's new facts: no duplicates, newest kept when a key is full.
+function mergeFacts(target, found, limits) {
+  for (const [key, limit] of Object.entries(limits)) {
+    for (const fact of found?.[key] ?? []) {
+      if (typeof fact !== 'string' || !fact.trim()) continue;
+      const known = target[key].findIndex((item) => item.toLowerCase() === fact.trim().toLowerCase());
+      if (known >= 0) target[key].splice(known, 1); // re-mentioned facts move to the newest end
+      target[key].push(fact.trim());
+    }
+    target[key] = target[key].slice(-limit);
+  }
+}
+
 // except: a personality to leave out, so meeting a new Emot never brings back the same one.
 function freshState(now, except = null) {
   const keys = Object.keys(PERSONALITIES).filter((key) => key !== except);
   return {
     version: 2,
+    name: DEFAULT_NAME,
     personality: keys[Math.floor(Math.random() * keys.length)],
     social: START_NEEDS.social,
     bond: START_NEEDS.bond,
@@ -29,7 +63,7 @@ function freshState(now, except = null) {
     energyAt: now,
     needsAt: now,
     history: [],
-    memory: [],
+    memory: emptyMemory(),
   };
 }
 
@@ -37,24 +71,27 @@ function isSave(saved) {
   return saved?.version === 2
     && saved.personality in PERSONALITIES
     && ['social', 'bond', 'xp', 'energy', 'energyAt', 'needsAt'].every((key) => Number.isFinite(saved[key]))
-    && Array.isArray(saved.history) && Array.isArray(saved.memory);
+    && Array.isArray(saved.history) && (Array.isArray(saved.memory) || Array.isArray(saved.memory?.episodes));
 }
 
-function loadState(now) {
+// null when there is no usable save, so the caller knows a new Emot just arrived.
+function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (isSave(saved)) return saved;
+    if (isSave(saved)) return { ...saved, name: saved.name ?? DEFAULT_NAME, memory: migrateMemory(saved.memory) };
   } catch {
     // private mode or corrupted data: a fresh Emot instead of a crash
   }
-  return freshState(now);
+  return null;
 }
 
 // Owns everything that is saved: personality, needs, affinity, energy, recent talk and key memories.
 // Time-based changes are computed from timestamps, so closing the tab still lets time pass.
 export class Game {
   constructor(now) {
-    this.state = loadState(now);
+    const saved = loadState();
+    this.isNew = !saved; // a new Emot gets named before anything else
+    this.state = saved ?? freshState(now);
     this.tick(now);
   }
 
@@ -65,6 +102,10 @@ export class Game {
   // Wipes this Emot and brings a new one with a different personality.
   reroll(now) {
     this.state = freshState(now, this.state.personality);
+  }
+
+  rename(name) {
+    this.state.name = name.trim().slice(0, MAX_NAME) || DEFAULT_NAME;
   }
 
   levelProgress() {
@@ -117,7 +158,8 @@ export class Game {
   }
 
   llmContext(now) {
-    return { ...this.context(), hour: new Date(now).getHours(), memory: this.state.memory, history: this.state.history };
+    const { name, memory, history } = this.state;
+    return { ...this.context(), name, hour: new Date(now).getHours(), memory, history };
   }
 
   remember(who, text) {
@@ -144,14 +186,24 @@ export class Game {
     };
   }
 
-  // Anything Emot said: kept in the recent talk, and her updated key memories replace the old list.
-  rememberLine(line) {
+  // Anything Emot said goes into the recent talk; what the Worker found new this turn is merged into memory.
+  rememberLine(line, now = Date.now()) {
     this.remember('emot', line.text);
-    if (Array.isArray(line.memory)) {
-      this.state.memory = line.memory
-        .filter((item) => typeof item === 'string' && item.trim())
-        .slice(0, MAX_MEMORY)
-        .map((item) => item.slice(0, MAX_MEMORY_TEXT));
+    const found = line.memory;
+    if (!found) return;
+    const memory = this.state.memory;
+    if (found.player?.name?.trim()) memory.player.name = found.player.name.trim().slice(0, MAX_NAME);
+    // Plans say "tomorrow" or "next week", so keep the day they were heard on.
+    const plans = (found.player?.plans ?? []).map((plan) => `(${dayLabel(now)}) ${plan}`);
+    mergeFacts(memory.player, { ...found.player, plans }, MEMORY_LIMITS.player);
+    mergeFacts(memory.self, found.self, MEMORY_LIMITS.self);
+    if (found.episode?.summary) {
+      memory.episodes.push({ day: dayLabel(now), ...found.episode });
+      // Over the cap, forget the least important conversation, oldest first among equals.
+      while (memory.episodes.length > MEMORY_LIMITS.episodes) {
+        const lightest = Math.min(...memory.episodes.map((episode) => episode.weight));
+        memory.episodes.splice(memory.episodes.findIndex((episode) => episode.weight === lightest), 1);
+      }
     }
   }
 

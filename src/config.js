@@ -33,6 +33,15 @@ export const REWARDS = {
 export const HURT_THRESHOLD = 0.6;
 
 export const HISTORY_SIZE = 6;
+
+export const DEFAULT_NAME = '이모트';
+export const MAX_NAME = 12;
+// Key-value memory caps. Keys must match PLAYER_KEYS / SELF_KEYS in worker/index.js (Worker allows up to 6 per key).
+export const MEMORY_LIMITS = {
+  player: { likes: 6, dislikes: 6, people: 6, plans: 4 },
+  self: { likes: 5, dislikes: 5, treasures: 5 },
+  episodes: 12, // conversations worth keeping
+};
 export const FACE_HOLD_MS = 6000; // a reaction stays on the face this long, then eases back to neutral
 export const AFTER_BUBBLE_HOLD_MS = 1500; // Emot keeps the line's face briefly after its bubble closes
 export const TYPE_MS = 38; // visual-novel typing speed per character
@@ -61,8 +70,7 @@ export const CHARACTER = {
   mouth: { x: 553, y: 263 },
   cheeks: [{ x: 484, y: 248 }, { x: 612, y: 236 }],
   hit: { x0: 340, y0: 20, x1: 745, y1: 1440 },
-  bubble: { x: 720, y: 330 }, // speech bubble's top-left corner: beside the chest, below the face
-  chinY: 300, // the bubble never rises above this, so it can't cover the face
+  bubble: { x: 690, y: 980 }, // speech bubble's top-left corner: beside the legs, well clear of the face
   screenHeight: 0.6, // share of the free vertical space the drawing fills
 };
 

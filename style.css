@@ -178,7 +178,46 @@ body {
 
 .sheet ul + p + h2, .sheet .empty + h2 { margin-top: 22px; }
 
-.memory-list, .history-list {
+.sheet h3 {
+  margin: 18px 0 6px;
+  color: var(--graphite);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 5px 12px;
+  margin: 0;
+}
+
+.facts dt { color: var(--graphite); font-size: 13px; }
+.facts dd { margin: 0; font-family: var(--serif); }
+.facts dd:empty::before { content: '-'; color: var(--graphite); }
+
+.episode-list li {
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--graphite);
+  font-family: var(--serif);
+  line-height: 1.5;
+}
+
+.episode-list li::before { content: attr(data-day); margin-right: 8px; color: var(--graphite); font-family: var(--sans); font-size: 12px; }
+
+.name-input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 2px solid var(--ink);
+  outline: 0;
+  background: transparent;
+  font-family: var(--serif);
+  font-size: 20px;
+}
+
+.memory-list, .history-list, .episode-list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -198,7 +237,7 @@ body {
 .history-list li[data-who='emot'] { font-family: var(--serif); }
 .history-list li[data-who='player'] { color: var(--graphite); }
 
-.memory-list li:empty, .history-list li:empty { display: none; }
+.memory-list li:empty, .history-list li:empty, .episode-list li:empty { display: none; }
 
 .empty { margin: 0; color: var(--graphite); font-size: 13px; }
 
@@ -290,9 +329,9 @@ body {
 .bubble {
   --bubble-fill: rgba(0, 0, 0, 0.64);
   position: fixed;
-  width: min(300px, calc(100vw - 32px));
-  min-height: 56px;
-  padding: 10px 15px 12px;
+  width: min(270px, calc(100vw - 32px));
+  min-height: 48px;
+  padding: 9px 13px 10px;
   background: var(--bubble-fill);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -302,27 +341,15 @@ body {
   user-select: none;
 }
 
-/* Tail on the top edge, pointing up at Emot's mouth (ui.js sets --tail-x). */
-.bubble::before {
-  content: '';
-  position: absolute;
-  left: var(--tail-x, 40px);
-  top: -8px;
-  width: 16px;
-  height: 8px;
-  background: var(--bubble-fill);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-}
-
 .bubble-name {
   color: #ff9cc8; /* the riso pink, lifted so it reads on the dark box */
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .bubble-text {
-  margin: 3px 0 0;
+  margin: 2px 0 0;
   font-family: var(--serif);
-  font-size: 14px;
+  font-size: 12.5px;
   line-height: 1.6;
   word-break: keep-all;
 }

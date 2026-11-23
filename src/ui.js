@@ -116,15 +116,22 @@ const bubbleText = element('bubble-text');
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let typing = null; // { text, shown, timer } while characters are still appearing
 let onBubbleClosed = () => {};
+let emotName = '이모트';
 
-// corner: where the bubble wants its top-left (beside the chest). chinY: it never rises above this,
-// so the face stays visible. mouth: where the tail on its top edge points.
-export function placeBubble(corner, chinY, mouth) {
-  const width = Math.min(300, window.innerWidth - 32); // matches the CSS width
-  const left = Math.max(16, Math.min(corner.x, window.innerWidth - width - 16));
-  bubble.style.left = `${left}px`;
-  bubble.style.top = `${Math.max(corner.y, chinY + 18)}px`;
-  bubble.style.setProperty('--tail-x', `${Math.max(18, Math.min(mouth.x - left - 8, width - 34))}px`);
+// The player's chosen name everywhere it is shown: status title, dialogs, the bubble's name tag.
+export function showName(name) {
+  emotName = name;
+  for (const node of document.querySelectorAll('[data-emot-name]')) node.textContent = name;
+}
+
+const CHAT_SPACE = 150; // CSS px the chat line takes at the bottom
+const BUBBLE_ROOM = 110; // enough height for a three-line caption
+
+// corner: where the box wants its top-left, beside Emot's legs. It stays on screen and above the chat line.
+export function placeBubble(corner) {
+  const width = Math.min(270, window.innerWidth - 32); // matches the CSS width
+  bubble.style.left = `${Math.max(16, Math.min(corner.x, window.innerWidth - width - 16))}px`;
+  bubble.style.top = `${Math.max(16, Math.min(corner.y, window.innerHeight - CHAT_SPACE - BUBBLE_ROOM))}px`;
 }
 
 export function setBubbleClosedHandler(handler) {
@@ -133,15 +140,15 @@ export function setBubbleClosedHandler(handler) {
 
 export function showThinking() {
   stopTyping();
-  bubbleName.textContent = '이모트';
+  bubbleName.textContent = emotName;
   bubbleText.textContent = '';
   bubble.className = 'bubble thinking';
   bubble.hidden = false;
 }
 
-export function showLine(text, name = '이모트') {
+export function showLine(text) {
   stopTyping();
-  bubbleName.textContent = name;
+  bubbleName.textContent = emotName;
   bubble.className = 'bubble';
   bubble.hidden = false;
   if (reducedMotion.matches) {
@@ -224,24 +231,44 @@ export function describeChange({ social, bond, xp, levelChange }) {
   return parts.join(', ');
 }
 
-// ---- dialogs: memory list and the "meet a new Emot" confirmation ----
+// ---- dialogs: memory, naming a new Emot, and the "meet a new Emot" confirmation ----
 
 const memoryDialog = element('memory-dialog');
-const memoryItems = [...document.querySelectorAll('#memory-list li')];
+const factSlots = [...document.querySelectorAll('[data-fact]')];
+const episodeItems = [...document.querySelectorAll('#episode-list li')];
 const historyItems = [...document.querySelectorAll('#history-list li')];
 const rerollDialog = element('reroll-dialog');
+const nameDialog = element('name-dialog');
+const nameInput = element('name-input');
 
-// Fills the fixed list slots in index.html; empty slots hide themselves through CSS.
+// Fills the fixed slots in index.html; empty slots hide themselves through CSS.
 export function openMemory({ memory, history }) {
-  memoryItems.forEach((item, index) => { item.textContent = memory[index] ?? ''; });
+  for (const slot of factSlots) {
+    const [group, key] = slot.dataset.fact.split('.');
+    const value = memory[group][key];
+    slot.textContent = Array.isArray(value) ? value.join(', ') : value;
+  }
+  episodeItems.forEach((item, index) => {
+    const episode = memory.episodes[index];
+    item.textContent = episode?.summary ?? '';
+    item.dataset.day = episode?.day ?? '';
+  });
   historyItems.forEach((item, index) => {
     const entry = history[index];
-    item.textContent = entry ? `${entry.who === 'player' ? '나' : '이모트'}: ${entry.text}` : '';
+    item.textContent = entry ? `${entry.who === 'player' ? '나' : emotName}: ${entry.text}` : '';
     item.dataset.who = entry?.who ?? '';
   });
-  element('memory-empty').hidden = memory.length > 0;
+  element('episode-empty').hidden = memory.episodes.length > 0;
   element('history-empty').hidden = history.length > 0;
   memoryDialog.showModal();
+}
+
+// A new Emot asks for a name. Closing without one keeps the default.
+export function askName(personalityLabel, onNamed) {
+  element('name-personality').textContent = personalityLabel;
+  nameInput.value = '';
+  nameDialog.showModal();
+  nameDialog.addEventListener('close', () => onNamed(nameInput.value), { once: true });
 }
 
 export function confirmReroll(onConfirm) {

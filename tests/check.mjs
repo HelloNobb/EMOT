@@ -64,13 +64,42 @@ assert.ok(hurt.bond < 0);
 assert.equal(game.state.xp, Math.max(0, warm.xp + hurt.xp));
 assert.equal(game.state.history.length, 2);
 
-// a reply is remembered without a reward; a touch line earns one. Memory is trimmed to the limits
+// a reply is remembered without a reward; a touch line earns one
+assert.equal(game.isNew, true); // no save in node: a new Emot, so the page asks for a name
 const xpBeforeReply = game.state.xp;
-game.rememberLine({ text: '그래서?', memory: Array.from({ length: 12 }, (_, index) => `기억 ${index}`) });
+const found = (overrides) => ({
+  player: { name: '', likes: [], dislikes: [], people: [], plans: [] },
+  self: { likes: [], dislikes: [], treasures: [] },
+  episode: null,
+  ...overrides,
+});
+game.rememberLine({ text: '그래서?', memory: found({ player: { name: '민수', likes: ['떡볶이', '라면'], dislikes: [], people: [], plans: [] } }) }, later);
 assert.equal(game.state.xp, xpBeforeReply);
-assert.equal(game.state.memory.length, 8);
-assert.ok(game.applyLine({ text: '창밖 봤어?', memory: [] }).social > 0);
+assert.equal(game.state.memory.player.name, '민수');
+assert.ok(game.applyLine({ text: '창밖 봤어?', memory: found({}) }).social > 0);
 assert.equal(game.state.history.at(-1).text, '창밖 봤어?');
+
+// key-value memory: duplicates collapse (re-mentioned moves to newest), each key keeps only its newest few
+game.rememberLine({ text: '응', memory: found({ player: { name: '', likes: ['떡볶이', 'A', 'B', 'C', 'D', 'E'], dislikes: [], people: [], plans: [] } }) }, later);
+assert.deepEqual(game.state.memory.player.likes, ['떡볶이', 'A', 'B', 'C', 'D', 'E']); // 라면 was oldest, pushed out at 6
+assert.equal(game.state.memory.player.name, '민수'); // an empty name never erases the known one
+
+// conversations: over 12, the least important goes first, oldest among equals
+for (let index = 0; index < 12; index++) {
+  game.rememberLine({ text: '…', memory: found({ episode: { summary: `대화 ${index}`, weight: index === 0 ? 3 : 1, feeling: 'neutral' } }) }, later);
+}
+game.rememberLine({ text: '…', memory: found({ episode: { summary: '중요한 얘기', weight: 3, feeling: 'sad' } }) }, later);
+const episodes = game.state.memory.episodes;
+assert.equal(episodes.length, 12);
+assert.equal(episodes[0].summary, '대화 0'); // weight 3 survives
+assert.ok(!episodes.some((episode) => episode.summary === '대화 1')); // oldest weight-1 was dropped
+assert.equal(episodes.at(-1).summary, '중요한 얘기');
+
+// naming
+game.rename('  콩이  ');
+assert.equal(game.state.name, '콩이');
+game.rename('   ');
+assert.equal(game.state.name, '이모트'); // blank falls back to the default
 
 // recent talk keeps only the last few lines
 for (let index = 0; index < 10; index++) game.remember('player', `말 ${index}`);

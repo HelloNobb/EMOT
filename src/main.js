@@ -6,7 +6,7 @@ import { post } from './api.js';
 import { parseAnswers, createEmotionJudge } from './emotion.js';
 import {
   showStats, showEmotion, showJudgeStats, showStatus, placeBubble, setBubbleClosedHandler, showThinking, showLine,
-  hideBubble, showToast, describeChange, openMemory, confirmReroll,
+  hideBubble, showToast, describeChange, openMemory, confirmReroll, showName, askName,
 } from './ui.js';
 
 const UI_INTERVAL_SECONDS = 0.25; // DOM writes and the game clock don't need 60 Hz
@@ -17,7 +17,19 @@ const view = new CharacterView(canvas, await loadImage(CHARACTER.url));
 const game = new Game(Date.now());
 const face = new Face();
 face.setRest(game.level, game.state.personality);
+showName(game.state.name);
 document.getElementById('loading').remove();
+
+// Every new Emot is named by the player before anything else happens.
+function nameNewEmot(onDone = () => {}) {
+  askName(PERSONALITIES[game.state.personality], (name) => {
+    game.rename(name);
+    game.save();
+    showName(game.state.name);
+    onDone();
+  });
+}
+if (game.isNew) nameNewEmot();
 
 // A reaction stays on the face for a while, then the face eases back to rest.
 // Infinity = hold until something ends it (Emot's bubble closing).
@@ -137,7 +149,8 @@ document.getElementById('reroll-button').addEventListener('click', () => {
     holdUntil = 0;
     hideBubble();
     showStats(game, now);
-    showToast(`새 이모트가 왔어요. 이번엔 ${PERSONALITIES[game.state.personality]}`);
+    showName(game.state.name);
+    nameNewEmot(() => showToast(`${game.state.name}, 잘 부탁해`));
   });
 });
 
@@ -149,11 +162,7 @@ const status = document.querySelector('.status');
 function resize() {
   // On narrow screens the status block sits above Emot instead of beside her.
   view.resize(window.innerWidth < NARROW_SCREEN ? status.getBoundingClientRect().bottom + 8 : 0);
-  placeBubble(
-    view.toScreen(CHARACTER.bubble),
-    view.toScreen({ x: CHARACTER.centerX, y: CHARACTER.chinY }).y,
-    view.toScreen(CHARACTER.mouth),
-  );
+  placeBubble(view.toScreen(CHARACTER.bubble));
 }
 window.addEventListener('resize', resize);
 resize();

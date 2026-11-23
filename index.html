@@ -14,7 +14,7 @@
   <div id="loading" class="loading">이모트를 깨우는 중…</div>
 
   <section class="status" aria-label="이모트 상태">
-    <h1 class="name">이모트 <small id="personality"></small></h1>
+    <h1 class="name"><span data-emot-name>이모트</span> <small id="personality"></small></h1>
 
     <div class="hearts" aria-label="호감도">
       <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
@@ -86,18 +86,49 @@
   </form>
 
   <dialog id="memory-dialog" class="sheet" aria-labelledby="memory-title">
-    <h2 id="memory-title">이모트가 기억하는 것</h2>
-    <ul id="memory-list" class="memory-list">
-      <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
-    </ul>
-    <p id="memory-empty" class="empty">아직 기억하는 게 없어요. 이름이나 좋아하는 걸 말해 주면 기억해 둬요.</p>
-    <h2>최근 대화</h2>
+    <h2 id="memory-title"><span data-emot-name>이모트</span>의 기억</h2>
+
+    <h3>나에 대해</h3>
+    <dl class="facts">
+      <dt>이름</dt><dd data-fact="player.name"></dd>
+      <dt>좋아함</dt><dd data-fact="player.likes"></dd>
+      <dt>싫어함</dt><dd data-fact="player.dislikes"></dd>
+      <dt>주변 사람</dt><dd data-fact="player.people"></dd>
+      <dt>일정</dt><dd data-fact="player.plans"></dd>
+    </dl>
+
+    <h3><span data-emot-name>이모트</span> 자신에 대해</h3>
+    <dl class="facts">
+      <dt>좋아함</dt><dd data-fact="self.likes"></dd>
+      <dt>싫어함</dt><dd data-fact="self.dislikes"></dd>
+      <dt>아끼는 것</dt><dd data-fact="self.treasures"></dd>
+    </dl>
+
+    <h3>기억하는 대화</h3>
+    <ol id="episode-list" class="episode-list">
+      <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
+    </ol>
+    <p id="episode-empty" class="empty">아직 특별히 기억하는 대화가 없어요.</p>
+
+    <h3>최근 대화</h3>
     <ol id="history-list" class="history-list">
       <li></li><li></li><li></li><li></li><li></li><li></li>
     </ol>
     <p id="history-empty" class="empty">아직 나눈 대화가 없어요.</p>
+
     <form method="dialog" class="sheet-actions">
       <button value="close">닫기</button>
+    </form>
+  </dialog>
+
+  <dialog id="name-dialog" class="sheet" aria-labelledby="name-title">
+    <form method="dialog">
+      <h2 id="name-title">새 친구가 왔어요</h2>
+      <p><b id="name-personality"></b> 성격이에요. 불러 줄 이름을 지어 주세요.</p>
+      <input id="name-input" class="name-input" maxlength="12" autocomplete="off" placeholder="이모트" aria-label="이름">
+      <div class="sheet-actions">
+        <button value="ok" class="primary">이 이름으로 부르기</button>
+      </div>
     </form>
   </dialog>
 
