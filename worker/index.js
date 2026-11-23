@@ -12,8 +12,15 @@ const ALLOWED_ORIGINS = ['https://hellonobb.github.io', 'http://localhost:8000',
 
 const MAX_TEXT = 200;
 const MAX_HISTORY = 6;
-const MAX_MEMORY = 8;
-const MAX_MEMORY_TEXT = 60;
+const MAX_NAME = 12;
+const MAX_FACT = 40; // one remembered keyword or short phrase
+const MAX_EPISODE = 80;
+const MAX_EPISODES = 12;
+// Key-value memory. Keys and caps must match MEMORY_LIMITS in src/config.js.
+const PLAYER_KEYS = ['likes', 'dislikes', 'people', 'plans'];
+const SELF_KEYS = ['likes', 'dislikes', 'treasures'];
+const MAX_PER_KEY = 6;
+const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
 const MAX_LINE_TEXT = 120;
 
 const PERSONALITIES = {
@@ -74,7 +81,7 @@ const TOPICS = [
 ];
 
 const LINE_RULES = [
-  '너는 "이모트(Emot)"다. 헝클어진 짧은 머리, 큰 검은 티셔츠, 다크서클이 있는 졸린 눈의 아이.',
+  '너는 이모트(Emot)라는 존재이고, 이름은 "{name}"이다(플레이어가 지어 줬다). 헝클어진 짧은 머리, 큰 검은 티셔츠, 다크서클이 있는 졸린 눈의 아이.',
   '화면 속 작은 방에 살고, 화면 밖의 플레이어가 말을 걸어 주며 너를 키운다.',
   '',
   '{personality}',
@@ -87,13 +94,28 @@ const LINE_RULES = [
   '- 유치한 말투, 과한 의성어, 뻔한 감상은 피한다. 구체적인 사물·상황·생각 하나를 짚어서 말한다.',
   '- 최근 대화에 나온 문장이나 표현을 되풀이하지 않는다.',
   '- 사회적 접촉이 낮으면 외로움을, 정서적 교감이 낮으면 서운함을 성격답게 드러낸다.',
-  '- memory는 플레이어에 대한 핵심 기억 목록(이름, 좋아하는 것, 중요한 일). 기존 목록을 유지하되 최근 대화에서 플레이어가',
-  '  직접 말한 새 사실만 추가하고, 최대 8개, 각 30자 이내. 새 사실이 없으면 기존 목록을 그대로 돌려준다.',
+  '- 기억하는 내용은 자연스러울 때만 꺼낸다. 매번 꺼내지 않는다.',
+  '- memory에는 이번 대화에서 새로 알게 된 것만 적는다. 이미 기억에 있는 건 다시 쓰지 않고, 없으면 빈 값으로 둔다.',
+  '  playerName·playerLikes·playerDislikes·playerPeople·playerPlans: 플레이어가 자기 입으로 말한 사실만. 짐작 금지. 각 15자 이내 핵심어.',
+  '  selfLikes·selfDislikes·selfTreasures: 이번 대사에서 네가 너 자신에 대해 말한 것. 다음에 말이 앞뒤가 맞게 하려는 기록. 각 15자 이내.',
+  '  episodeSummary: 이번 대화가 기억할 만하면(속마음, 중요한 일, 감정이 큰 일) 25자 이내 요약, 아니면 빈 문자열. episodeWeight는 1~3(클수록 중요).',
 ].join('\n');
 
+// Flat on purpose: the model fills plain fields more reliably than nested objects.
 const LineSchema = z.object({
   text: z.string(),
-  memory: z.array(z.string()),
+  memory: z.object({
+    playerName: z.string(),
+    playerLikes: z.array(z.string()),
+    playerDislikes: z.array(z.string()),
+    playerPeople: z.array(z.string()),
+    playerPlans: z.array(z.string()),
+    selfLikes: z.array(z.string()),
+    selfDislikes: z.array(z.string()),
+    selfTreasures: z.array(z.string()),
+    episodeSummary: z.string(),
+    episodeWeight: z.number(),
+  }),
 });
 
 const EMOTION_QUESTION = (subject) => ({
@@ -140,9 +162,17 @@ function readState(body) {
   return { personality: body.personality, social: Math.round(body.social), bond: Math.round(body.bond), level: body.level };
 }
 
-function readMemory(list) {
-  if (!Array.isArray(list) || list.length > MAX_MEMORY) return null;
-  return list.every((item) => isText(item, MAX_MEMORY_TEXT)) ? list : null;
+const isFactList = (list) => Array.isArray(list) && list.length <= MAX_PER_KEY && list.every((item) => isText(item, MAX_FACT));
+
+function readMemory(memory) {
+  const { player, self, episodes } = memory ?? {};
+  if (!player || !self || !Array.isArray(episodes) || episodes.length > MAX_EPISODES) return null;
+  if (typeof player.name !== 'string' || player.name.length > MAX_NAME) return null;
+  if (!PLAYER_KEYS.every((key) => isFactList(player[key])) || !SELF_KEYS.every((key) => isFactList(self[key]))) return null;
+  const validEpisodes = episodes.every((episode) => isText(episode?.summary, MAX_EPISODE)
+    && typeof episode.day === 'string' && episode.day.length <= 10
+    && EMOTIONS.includes(episode.feeling) && [1, 2, 3].includes(episode.weight));
+  return validEpisodes ? memory : null;
 }
 
 function readHistory(list) {
@@ -168,13 +198,13 @@ async function askJev(env, state, questions) {
   return data;
 }
 
-async function askHaiku(env, personality, userContent) {
+async function askHaiku(env, personality, name, userContent) {
   if (!env.ANTHROPIC_API_KEY) throw new UpstreamError('대사 API 키 미등록 (ANTHROPIC_API_KEY)');
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const response = await client.messages.parse({
     model: LINE_MODEL,
     max_tokens: 2048,
-    system: LINE_RULES.replace('{personality}', PERSONALITIES[personality].prompt),
+    system: LINE_RULES.replace('{personality}', PERSONALITIES[personality].prompt).replace('{name}', name),
     messages: [{ role: 'user', content: userContent }],
     output_config: { effort: 'medium', format: zodOutputFormat(LineSchema) }, // low effort gave flat, repetitive lines
   });
@@ -189,6 +219,24 @@ function timeOfDay(hour) {
   return `${part} ${hour % 12 || 12}시`;
 }
 
+const PLAYER_LABELS = { likes: '좋아함', dislikes: '싫어함', people: '주변 사람', plans: '일정' };
+const SELF_LABELS = { likes: '좋아함', dislikes: '싫어함', treasures: '아끼는 것' };
+
+function describeFacts(facts, labels) {
+  const parts = Object.entries(labels).filter(([key]) => facts[key].length).map(([key, label]) => `${label}: ${facts[key].join(', ')}`);
+  return parts.length ? parts.join(' / ') : '(없음)';
+}
+
+function describeMemory({ player, self, episodes }) {
+  const name = player.name ? `이름: ${player.name} / ` : '';
+  const talks = episodes.length ? episodes.map((episode) => `(${episode.day}) ${episode.summary}`).join('\n') : '(없음)';
+  return [
+    `플레이어에 대해 아는 것: ${name}${describeFacts(player, PLAYER_LABELS)}`,
+    `네가 너 자신에 대해 말했던 것: ${describeFacts(self, SELF_LABELS)}`,
+    `기억하는 대화:\n${talks}`,
+  ].join('\n');
+}
+
 function describeContext(state, hour, memory, history) {
   const tone = LEVEL_ATTITUDE[state.level - 1];
   const talk = history.length
@@ -197,7 +245,7 @@ function describeContext(state, hour, memory, history) {
   return [
     `호감도 레벨 ${state.level}/10: ${tone}`,
     `사회적 접촉 ${state.social}/100, 정서적 교감 ${state.bond}/100. 지금은 ${timeOfDay(hour)}쯤(시간은 꼭 필요할 때만 언급).`,
-    `핵심 기억: ${memory.length ? memory.join(' / ') : '(없음)'}`,
+    describeMemory(memory),
     `최근 대화:\n${talk}`,
   ].join('\n');
 }
@@ -222,8 +270,8 @@ function readLlmInput(body) {
   const state = readState(body);
   const memory = readMemory(body?.memory);
   const history = readHistory(body?.history);
-  if (!state || !memory || !history || !isHour(body.hour)) return null;
-  return { state, context: describeContext(state, body.hour, memory, history) };
+  if (!state || !memory || !history || !isHour(body.hour) || !isText(body.name, MAX_NAME)) return null;
+  return { state, name: body.name.trim(), context: describeContext(state, body.hour, memory, history) };
 }
 
 // ---- routes ----
@@ -285,13 +333,31 @@ const ROUTES = {
   },
 };
 
+const cleanFacts = (list) => list.map((item) => item.trim().slice(0, MAX_FACT)).filter(Boolean).slice(0, MAX_PER_KEY);
+
 async function speak(env, input, prompt) {
-  const line = await askHaiku(env, input.state.personality, prompt.join('\n'));
+  const line = await askHaiku(env, input.state.personality, input.name, prompt.join('\n'));
   const text = line.text.slice(0, MAX_LINE_TEXT);
+  const answers = await readOwnWords(env, input.state, text);
+  const found = line.memory;
+  const summary = found.episodeSummary.trim().slice(0, MAX_EPISODE);
   return {
     text,
-    memory: line.memory.filter((item) => item.trim()).slice(0, MAX_MEMORY).map((item) => item.slice(0, MAX_MEMORY_TEXT)),
-    answers: await readOwnWords(env, input.state, text),
+    answers,
+    // Only what is new this turn; the client merges it and enforces the caps.
+    memory: {
+      player: {
+        name: found.playerName.trim().slice(0, MAX_NAME),
+        likes: cleanFacts(found.playerLikes),
+        dislikes: cleanFacts(found.playerDislikes),
+        people: cleanFacts(found.playerPeople),
+        plans: cleanFacts(found.playerPlans),
+      },
+      self: { likes: cleanFacts(found.selfLikes), dislikes: cleanFacts(found.selfDislikes), treasures: cleanFacts(found.selfTreasures) },
+      episode: summary
+        ? { summary, weight: Math.max(1, Math.min(3, Math.round(found.episodeWeight))), feeling: answers.emotion?.choice ?? 'neutral' }
+        : null,
+    },
   };
 }
 
