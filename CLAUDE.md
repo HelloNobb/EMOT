@@ -38,5 +38,6 @@
 - Worker의 모든 응답(오류 포함)은 CORS 헤더를 단다. 아니면 브라우저가 이유를 숨긴다
 - 얼굴은 그림 좌표계에서 그린다. 그리는 순서: 그림 → 우울선 → 눈(종이색으로 원본 감은 눈 덮기 → 뜬 눈) → 눈썹 → 입 → 기호
 - 새 감정 표현은 `config.js`의 `EMOTION_FACE` 오프셋으로 추가한다. 그리기 코드에 감정 이름을 쓰지 않는다
+- 감정은 두 층: 본심은 Jev(`INNER_REACTIONS`, 성격 × 레벨 구간), 표현은 Haiku 대사와 표정 가면(`PERSONALITY_MASK`). 보낸 말의 본심 하나로 표정·수치·대답을 맞춘다
 - 이벤트 대사는 `src/events.js`(데이터), 판정 질문은 Worker `EVENT_JUDGES`(키 `성격.레벨`). judge 이벤트를 추가하면 둘 다 고친다
 - 기억 키는 `config.js` `MEMORY_LIMITS`와 Worker `PLAYER_KEYS`/`SELF_KEYS`가 같아야 한다. 모델은 "새로 알게 된 것"만 주고, 병합·상한은 클라이언트가 결정적으로 처리한다

@@ -1,5 +1,6 @@
 import {
-  FACE_REST_LOW, FACE_REST_HIGH, PERSONALITY_FACE, EMOTION_FACE, INTENSITY_GAIN, EXPRESSION_SMOOTHING,
+  FACE_REST_LOW, FACE_REST_HIGH, PERSONALITY_FACE, PERSONALITY_MASK, MASK_FADE_AT_MAX_LEVEL, EMOTION_FACE, INTENSITY_GAIN,
+  EXPRESSION_SMOOTHING,
   BLINK_MIN_SECONDS, BLINK_MAX_SECONDS, BLINK_SECONDS,
 } from './config.js';
 
@@ -18,6 +19,8 @@ export class Face {
     this.glance = 0;
     this.glanceTimer = 2;
     this.thinking = false;
+    this.mask = {};
+    this.maskStrength = 1;
   }
 
   // While Emot is thinking of what to say, her eyes drift up and to the side.
@@ -30,6 +33,8 @@ export class Face {
   setRest(level, personality, calm = false) {
     const t = (level - 1) / 9;
     const extra = calm ? {} : PERSONALITY_FACE[personality];
+    this.mask = calm ? {} : PERSONALITY_MASK[personality];
+    this.maskStrength = 1 - (1 - MASK_FADE_AT_MAX_LEVEL) * t;
     for (const name of PARAMS) {
       this.rest[name] = FACE_REST_LOW[name] + (FACE_REST_HIGH[name] - FACE_REST_LOW[name]) * t + (extra[name] ?? 0);
     }
@@ -42,6 +47,10 @@ export class Face {
     for (const [emotion, probability] of Object.entries(probabilities)) {
       for (const [name, value] of Object.entries(EMOTION_FACE[emotion])) {
         this.offset[name] += value * probability * strength;
+      }
+      // The personality's outward mask over the true feeling: same weight, softened as they grow close.
+      for (const [name, value] of Object.entries(this.mask[emotion] ?? {})) {
+        this.offset[name] += value * probability * strength * this.maskStrength;
       }
     }
   }

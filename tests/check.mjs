@@ -172,6 +172,21 @@ face.setEmotion({}, 0);
 for (let step = 0; step < 120; step++) face.update(1 / 60);
 assert.ok(face.params.mouthCurve < 0.2);
 
+// ---- personality masks: same true feeling, different outward face ----
+const settle = (personality, level, calm = false) => {
+  const masked = new Face();
+  masked.setRest(level, personality, calm);
+  masked.setEmotion({ happy: 1 }, 0.5);
+  for (let step = 0; step < 120; step++) masked.update(1 / 60);
+  return masked.params;
+};
+const politeHappy = settle('polite', 1);
+const bluntHappy = settle('blunt', 1);
+assert.ok(bluntHappy.mouthCurve < politeHappy.mouthCurve); // pleased but hiding it
+assert.ok(bluntHappy.browTilt < politeHappy.browTilt); // frowning while blushing
+assert.ok(settle('blunt', 10).mouthCurve > bluntHappy.mouthCurve); // the mask softens as they grow close
+assert.ok(settle('anxious', 1).sweat > settle('anxious', 1, true).sweat); // calm removes the nervous mask
+
 // ---- throttle: first keystroke sends at once, a burst collapses into one send with the newest text ----
 const sent = [];
 globalThis.fetch = async (url, options) => {

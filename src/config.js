@@ -98,6 +98,22 @@ export const PERSONALITY_FACE = {
   polite: { mouthCurve: 0.15 },
   anxious: { sweat: 0.2, browTilt: 0.2 },
 };
+// How each personality shows a feeling on the outside, layered over the true feeling (same probability × strength).
+// The blunt one blushes but frowns when pleased; the anxious one sweats even when happy. Polite shows feelings as they are.
+// Masks soften toward level 10 (MASK_FADE_AT_MAX_LEVEL of their strength remains) and vanish once an event calms her.
+export const PERSONALITY_MASK = {
+  blunt: {
+    happy: { browTilt: -0.7, browHeight: -0.3, mouthCurve: -0.7, mouthSkew: 0.4, blush: 0.4, gazeX: 0.6 },
+    surprised: { browTilt: -0.4, mouthOpen: -0.4 },
+  },
+  polite: {},
+  anxious: {
+    happy: { sweat: 0.7, browTilt: 0.5, mouthOpen: -0.2 },
+    surprised: { sweat: 0.6, browTilt: 0.5 },
+  },
+};
+export const MASK_FADE_AT_MAX_LEVEL = 0.5;
+
 export const EMOTION_FACE = {
   neutral: {},
   happy: { eyeOpen: -0.35, pupilSize: 0.2, gazeX: -0.5, mouthCurve: 1.1, mouthOpen: 0.35, browHeight: 0.3, blush: 1 },
