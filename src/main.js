@@ -165,7 +165,7 @@ const judge = createEmotionJudge({
 });
 input.addEventListener('input', () => judge.queue(input.value));
 
-// ---- sending: Jev judges the message (/send) while Claude writes Emot's answer (/reply) ----
+// ---- sending: Jev judges the message (/send), then Claude answers with that same feeling (/reply) ----
 
 document.getElementById('chat').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -182,17 +182,26 @@ document.getElementById('chat').addEventListener('submit', async (event) => {
   game.remember('player', text);
   showThinking();
 
-  let replied = false;
+  // One feeling drives everything: Jev's reading of the message sets the face now, stays on it while she
+  // answers, and is handed to Claude so the words carry the same emotion.
   const judging = post('/send', { ...game.context(), text }).then((data) => {
-    if (!replied) react(parseAnswers(data), '보낸 말'); // her reaction until the answer arrives
+    const reading = parseAnswers(data);
+    react(reading, '보낸 말');
     afterChange(game.applySend(Number(data.answers?.warmth?.score) || 0, Number(data.answers?.hurtful?.noul) || 0));
     showStatus('idle');
+    return reading;
   });
-  const replying = post('/reply', { ...game.llmContext(Date.now()), text }).then((reply) => {
-    replied = true;
+  const replying = judging.catch(() => null).then(async (reading) => {
+    const feeling = reading && { emotion: reading.emotion, intensity: Math.round(reading.score) };
+    const reply = await post('/reply', { ...game.llmContext(Date.now()), text, feeling });
     game.rememberLine(reply);
     game.save();
-    say(reply, '이모트 대답');
+    if (reading) {
+      showLine(reply.text);
+      react(reading, '보낸 말', Infinity); // keep the same feeling while the answer is on screen
+    } else {
+      say(reply, '이모트 대답'); // no reading to share: Jev read the answer itself
+    }
   });
 
   const [judged, answered] = await Promise.allSettled([judging, replying]);
