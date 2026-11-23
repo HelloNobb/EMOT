@@ -70,8 +70,9 @@ export const CHARACTER = {
   mouth: { x: 553, y: 263 },
   cheeks: [{ x: 484, y: 248 }, { x: 612, y: 236 }],
   hit: { x0: 340, y0: 20, x1: 745, y1: 1440 },
-  bubble: { x: 690, y: 980 }, // speech bubble's top-left corner: beside the legs, well clear of the face
+  bubble: { x: 543, y: 1000 }, // speech box centre-top: over the legs, centred on the body, clear of the face
   eventMark: { x: 630, y: 40 }, // the "!" shown above the head when a heart's event is ready
+  thought: { x: 690, y: 110 }, // thought dots rising beside the head while a line is being written
   screenHeight: 0.6, // share of the free vertical space the drawing fills
 };
 

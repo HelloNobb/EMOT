@@ -363,18 +363,35 @@ body {
   animation: blink 1s steps(2) infinite;
 }
 
-.bubble.thinking .bubble-text::after {
-  content: '';
-  display: inline-block;
-  width: 24px;
-  height: 1em;
-  vertical-align: -3px;
-  background: radial-gradient(circle, #fff 2px, transparent 2.4px) 0 50% / 8px 8px repeat-x;
-  animation: think 1.2s steps(4) infinite;
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Thought dots: three rings rising from the head, small to large, while a line is being written. */
+.thought {
+  position: fixed;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  transform: translate(0, -100%);
+  pointer-events: none;
 }
 
-@keyframes blink { 50% { opacity: 0; } }
-@keyframes think { 0% { width: 0; } 100% { width: 32px; } }
+.thought i {
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  opacity: 0;
+  animation: thought-pop 1.5s ease-out infinite;
+}
+
+.thought i:nth-child(1) { width: 6px; height: 6px; }
+.thought i:nth-child(2) { width: 10px; height: 10px; margin-bottom: 6px; animation-delay: 0.25s; }
+.thought i:nth-child(3) { width: 16px; height: 16px; margin-bottom: 14px; animation-delay: 0.5s; }
+
+@keyframes thought-pop {
+  0% { opacity: 0; transform: translateY(4px) scale(0.6); }
+  25%, 70% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-3px); }
+}
 
 /* "!" over Emot's head: a heart's event is ready to play. */
 .event-mark {
@@ -486,5 +503,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .meter i { transition: none; }
-  .bubble.done .bubble-text::after, .bubble.thinking .bubble-text::after, .event-mark { animation: none; }
+  .bubble.done .bubble-text::after, .event-mark { animation: none; }
+  .thought i { animation: none; opacity: 1; }
 }

@@ -8,6 +8,7 @@ import { parseAnswers, createEmotionJudge } from './emotion.js';
 import {
   showStats, showEmotion, showJudgeStats, showStatus, placeBubble, setBubbleClosedHandler, showThinking, showLine,
   hideBubble, showToast, describeChange, openMemory, confirmReroll, showName, askName, placeEventMark, showAsk,
+  placeThought,
 } from './ui.js';
 
 const UI_INTERVAL_SECONDS = 0.25; // DOM writes and the game clock don't need 60 Hz
@@ -205,6 +206,27 @@ document.getElementById('chat').addEventListener('submit', async (event) => {
 
 // ---- touching Emot: she opens a new topic (Claude /line), costs 1 energy ----
 
+// The next touch line is written in the background right after the previous one, so a touch answers at once.
+// Touch lines start a new topic anyway, so being written a little earlier doesn't break the conversation.
+let nextLine = null; // Promise of a /line answer
+
+function prepareNextLine() {
+  const request = post('/line', game.llmContext(Date.now()));
+  request.catch(() => {}); // a failed prefetch is retried on the touch itself
+  nextLine = request;
+}
+
+async function takeLine(now) {
+  const prepared = nextLine;
+  nextLine = null;
+  try {
+    if (prepared) return await prepared;
+  } catch {
+    // fall through to a fresh request
+  }
+  return post('/line', game.llmContext(now));
+}
+
 canvas.addEventListener('click', async (event) => {
   if (talking || eventAsk || !view.hitTest(event.clientX, event.clientY)) return;
   const now = Date.now();
@@ -222,14 +244,17 @@ canvas.addEventListener('click', async (event) => {
   talking = true;
   showThinking();
   try {
-    const line = await post('/line', game.llmContext(now));
+    face.lookUp(true);
+    const line = await takeLine(now);
     say(line, '이모트 대사');
     afterChange(game.applyLine(line));
+    prepareNextLine();
   } catch (error) {
     game.refundEnergy();
     hideBubble();
     showToast(`이모트가 말하지 못했어요: ${error.message}`);
   } finally {
+    face.lookUp(false);
     talking = false;
   }
 });
@@ -247,6 +272,7 @@ document.getElementById('reroll-button').addEventListener('click', () => {
     const now = Date.now();
     game.reroll(now);
     game.save();
+    nextLine = null; // written for the previous Emot
     eventAsk = null;
     showAsk(null);
     refreshRest();
@@ -269,10 +295,12 @@ function resize() {
   view.resize(window.innerWidth < NARROW_SCREEN ? status.getBoundingClientRect().bottom + 8 : 0);
   placeBubble(view.toScreen(CHARACTER.bubble));
   placeEventMark(view.toScreen(CHARACTER.eventMark));
+  placeThought(view.toScreen(CHARACTER.thought));
 }
 window.addEventListener('resize', resize);
 resize();
 window.addEventListener('pagehide', () => game.save());
+prepareNextLine();
 
 let lastTime = 0;
 let uiTimer = UI_INTERVAL_SECONDS;

@@ -145,11 +145,19 @@ export function showName(name) {
 const CHAT_SPACE = 150; // CSS px the chat line takes at the bottom
 const BUBBLE_ROOM = 110; // enough height for a three-line caption
 
-// corner: where the box wants its top-left, beside Emot's legs. It stays on screen and above the chat line.
-export function placeBubble(corner) {
+// anchor: the centre of the box's top edge, over Emot's legs. It stays on screen and above the chat line.
+export function placeBubble(anchor) {
   const width = Math.min(270, window.innerWidth - 32); // matches the CSS width
-  bubble.style.left = `${Math.max(16, Math.min(corner.x, window.innerWidth - width - 16))}px`;
-  bubble.style.top = `${Math.max(16, Math.min(corner.y, window.innerHeight - CHAT_SPACE - BUBBLE_ROOM))}px`;
+  bubble.style.left = `${Math.max(16, Math.min(anchor.x - width / 2, window.innerWidth - width - 16))}px`;
+  bubble.style.top = `${Math.max(16, Math.min(anchor.y, window.innerHeight - CHAT_SPACE - BUBBLE_ROOM))}px`;
+}
+
+// Manga thought dots beside the head: shown while a line is being written instead of an empty box.
+const thought = element('thought');
+
+export function placeThought({ x, y }) {
+  thought.style.left = `${x}px`;
+  thought.style.top = `${y}px`;
 }
 
 export function setBubbleClosedHandler(handler) {
@@ -158,14 +166,13 @@ export function setBubbleClosedHandler(handler) {
 
 export function showThinking() {
   stopTyping();
-  bubbleName.textContent = emotName;
-  bubbleText.textContent = '';
-  bubble.className = 'bubble thinking';
-  bubble.hidden = false;
+  bubble.hidden = true;
+  thought.hidden = false;
 }
 
 export function showLine(text) {
   stopTyping();
+  thought.hidden = true;
   bubbleName.textContent = emotName;
   bubble.className = 'bubble';
   bubble.hidden = false;
@@ -203,11 +210,11 @@ function stopTyping() {
 
 export function hideBubble() {
   stopTyping();
+  thought.hidden = true;
   bubble.hidden = true;
 }
 
 function advanceBubble() {
-  if (bubble.classList.contains('thinking')) return; // nothing to skip while waiting
   if (typing) {
     finishTyping(typing.text);
     return;

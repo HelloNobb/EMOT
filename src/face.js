@@ -17,6 +17,12 @@ export class Face {
     this.blinkTimer = nextBlinkDelay();
     this.glance = 0;
     this.glanceTimer = 2;
+    this.thinking = false;
+  }
+
+  // While Emot is thinking of what to say, her eyes drift up and to the side.
+  lookUp(on) {
+    this.thinking = on;
   }
 
   // Growth shows on the resting face: a wary stranger at level 1, relaxed and looking at you at 10.
@@ -49,7 +55,8 @@ export class Face {
     }
     this.updateGlance(dt);
     this.params.eyeOpen = Math.max(0, this.current.eyeOpen * (1 - this.blink(dt)));
-    this.params.gazeX = Math.max(-1, Math.min(1, this.current.gazeX + this.glance));
+    this.params.gazeX = Math.max(-1, Math.min(1, this.current.gazeX + this.glance + (this.thinking ? 0.5 : 0)));
+    if (this.thinking) this.params.gazeY = -0.75;
   }
 
   blink(dt) {
