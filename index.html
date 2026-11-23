@@ -36,6 +36,11 @@
       <span class="pips"><i></i><i></i><i></i></span>
       <span id="energy-timer"></span>
     </div>
+
+    <div class="actions">
+      <button id="memory-button" type="button">기억 보기</button>
+      <button id="reroll-button" type="button">다른 이모트 만나기</button>
+    </div>
   </section>
 
   <section class="feelings" aria-label="감정 수치">
@@ -73,13 +78,37 @@
   <p id="toast" class="toast" hidden></p>
 
   <form id="chat" class="chat">
-    <p id="worry" class="worry" hidden></p>
     <div class="chat-line">
       <input id="message" maxlength="200" autocomplete="off" placeholder="이모트에게 말 걸기" aria-label="이모트에게 할 말">
       <button type="submit">보내기</button>
     </div>
     <p id="judge-status" class="status-line">말을 쓰는 동안 이모트 표정이 바뀌어요</p>
   </form>
+
+  <dialog id="memory-dialog" class="sheet" aria-labelledby="memory-title">
+    <h2 id="memory-title">이모트가 기억하는 것</h2>
+    <ul id="memory-list" class="memory-list">
+      <li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
+    </ul>
+    <p id="memory-empty" class="empty">아직 기억하는 게 없어요. 이름이나 좋아하는 걸 말해 주면 기억해 둬요.</p>
+    <h2>최근 대화</h2>
+    <ol id="history-list" class="history-list">
+      <li></li><li></li><li></li><li></li><li></li><li></li>
+    </ol>
+    <p id="history-empty" class="empty">아직 나눈 대화가 없어요.</p>
+    <form method="dialog" class="sheet-actions">
+      <button value="close">닫기</button>
+    </form>
+  </dialog>
+
+  <dialog id="reroll-dialog" class="sheet" aria-labelledby="reroll-title">
+    <h2 id="reroll-title">다른 이모트를 만날까요?</h2>
+    <p>지금 이모트의 호감도, 기억, 대화가 모두 지워지고 성격이 다른 새 이모트가 와요. 되돌릴 수 없어요.</p>
+    <form method="dialog" class="sheet-actions">
+      <button value="cancel" autofocus>그대로 둘게요</button>
+      <button value="confirm" class="primary">새 이모트 만나기</button>
+    </form>
+  </dialog>
 
   <script type="module" src="src/main.js"></script>
 </body>

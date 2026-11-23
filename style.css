@@ -134,6 +134,93 @@ body {
 
 .pips i.on { background: var(--ink); }
 
+.actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.actions button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--graphite);
+  background: none;
+  color: var(--graphite);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.actions button:hover { color: var(--ink); border-color: var(--ink); }
+
+/* ---- dialogs: a sheet of paper laid over the page ---- */
+
+.sheet {
+  width: min(420px, calc(100vw - 32px));
+  padding: 24px 26px 20px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 6px 6px 0 var(--ink);
+  font-family: var(--sans);
+}
+
+.sheet::backdrop { background: rgba(236, 237, 231, 0.7); backdrop-filter: blur(2px); }
+
+.sheet h2 {
+  margin: 0 0 12px;
+  font-family: var(--serif);
+  font-size: 19px;
+}
+
+.sheet h2 + p, .sheet p { line-height: 1.6; }
+
+.sheet ul + p + h2, .sheet .empty + h2 { margin-top: 22px; }
+
+.memory-list, .history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--graphite);
+  font-family: var(--serif);
+}
+
+.history-list li {
+  padding: 5px 0;
+  line-height: 1.5;
+}
+
+.history-list li[data-who='emot'] { font-family: var(--serif); }
+.history-list li[data-who='player'] { color: var(--graphite); }
+
+.memory-list li:empty, .history-list li:empty { display: none; }
+
+.empty { margin: 0; color: var(--graphite); font-size: 13px; }
+
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.sheet-actions button {
+  padding: 7px 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sheet-actions button.primary { background: var(--ink); color: var(--paper); }
+
 /* ---- feelings: the Jev readout, quiet and small ---- */
 
 .feelings {
@@ -205,26 +292,26 @@ body {
   width: min(330px, calc(100vw - 32px));
   min-height: 74px;
   padding: 12px 18px 16px;
-  background: rgba(255, 255, 255, 0.84);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   border: 2px solid var(--ink);
   border-radius: 22px;
   cursor: pointer;
   user-select: none;
 }
 
-/* Tail pointing back at Emot's head: a square turned 45°, showing two of its borders. */
+/* Tail on the top edge, pointing up at Emot's mouth (ui.js sets --tail-x). */
 .bubble::before {
   content: '';
   position: absolute;
-  left: -9px;
-  top: 26px;
+  left: var(--tail-x, 40px);
+  top: -9px;
   width: 15px;
   height: 15px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.85);
   border-left: 2px solid var(--ink);
-  border-bottom: 2px solid var(--ink);
+  border-top: 2px solid var(--ink);
   transform: rotate(45deg);
 }
 
@@ -286,15 +373,6 @@ body {
   bottom: 26px;
   transform: translateX(-50%);
   width: min(560px, calc(100vw - 48px));
-}
-
-.worry {
-  margin: 0 0 10px;
-  padding-left: 12px;
-  border-left: 3px solid var(--pink);
-  font-family: var(--serif);
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 .chat-line {

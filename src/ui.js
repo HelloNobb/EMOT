@@ -117,11 +117,14 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let typing = null; // { text, shown, timer } while characters are still appearing
 let onBubbleClosed = () => {};
 
-export function placeBubble({ x, y }) {
-  // Keep the whole bubble on screen; the tail stays on its left edge.
-  const width = bubble.offsetWidth || 330;
-  bubble.style.left = `${Math.max(16, Math.min(x + 14, window.innerWidth - width - 16))}px`;
-  bubble.style.top = `${Math.max(16, y - 30)}px`;
+// corner: where the bubble wants its top-left (beside the chest). chinY: it never rises above this,
+// so the face stays visible. mouth: where the tail on its top edge points.
+export function placeBubble(corner, chinY, mouth) {
+  const width = Math.min(330, window.innerWidth - 32); // matches the CSS width
+  const left = Math.max(16, Math.min(corner.x, window.innerWidth - width - 16));
+  bubble.style.left = `${left}px`;
+  bubble.style.top = `${Math.max(corner.y, chinY + 18)}px`;
+  bubble.style.setProperty('--tail-x', `${Math.max(18, Math.min(mouth.x - left - 8, width - 34))}px`);
 }
 
 export function setBubbleClosedHandler(handler) {
@@ -195,11 +198,9 @@ bubble.addEventListener('keydown', (event) => {
   advanceBubble();
 });
 
-// ---- toast and worry line ----
+// ---- toast ----
 
 const toast = element('toast');
-const worryLine = element('worry');
-const input = element('message');
 let toastTimer = 0;
 
 export function showToast(text) {
@@ -223,9 +224,30 @@ export function describeChange({ social, bond, xp, levelChange }) {
   return parts.join(', ');
 }
 
-export function showWorry(text) {
-  worryLine.hidden = !text;
-  worryLine.textContent = text ?? '';
-  input.placeholder = text ? '고민에 대답해 주기' : '이모트에게 말 걸기';
+// ---- dialogs: memory list and the "meet a new Emot" confirmation ----
+
+const memoryDialog = element('memory-dialog');
+const memoryItems = [...document.querySelectorAll('#memory-list li')];
+const historyItems = [...document.querySelectorAll('#history-list li')];
+const rerollDialog = element('reroll-dialog');
+
+// Fills the fixed list slots in index.html; empty slots hide themselves through CSS.
+export function openMemory({ memory, history }) {
+  memoryItems.forEach((item, index) => { item.textContent = memory[index] ?? ''; });
+  historyItems.forEach((item, index) => {
+    const entry = history[index];
+    item.textContent = entry ? `${entry.who === 'player' ? '나' : '이모트'}: ${entry.text}` : '';
+    item.dataset.who = entry?.who ?? '';
+  });
+  element('memory-empty').hidden = memory.length > 0;
+  element('history-empty').hidden = history.length > 0;
+  memoryDialog.showModal();
 }
 
+export function confirmReroll(onConfirm) {
+  rerollDialog.returnValue = '';
+  rerollDialog.showModal();
+  rerollDialog.addEventListener('close', () => {
+    if (rerollDialog.returnValue === 'confirm') onConfirm();
+  }, { once: true });
+}

@@ -1,4 +1,4 @@
-import { CHARACTER, FACE_HOLD_MS, AFTER_BUBBLE_HOLD_MS, WORRY_CHANCE, SAVE_INTERVAL_SECONDS } from './config.js';
+import { CHARACTER, PERSONALITIES, FACE_HOLD_MS, AFTER_BUBBLE_HOLD_MS, SAVE_INTERVAL_SECONDS } from './config.js';
 import { loadImage, CharacterView } from './character.js';
 import { Face } from './face.js';
 import { Game } from './game.js';
@@ -6,7 +6,7 @@ import { post } from './api.js';
 import { parseAnswers, createEmotionJudge } from './emotion.js';
 import {
   showStats, showEmotion, showJudgeStats, showStatus, placeBubble, setBubbleClosedHandler, showThinking, showLine,
-  hideBubble, showToast, describeChange, showWorry,
+  hideBubble, showToast, describeChange, openMemory, confirmReroll,
 } from './ui.js';
 
 const UI_INTERVAL_SECONDS = 0.25; // DOM writes and the game clock don't need 60 Hz
@@ -17,7 +17,6 @@ const view = new CharacterView(canvas, await loadImage(CHARACTER.url));
 const game = new Game(Date.now());
 const face = new Face();
 face.setRest(game.level, game.state.personality);
-showWorry(game.state.worry);
 document.getElementById('loading').remove();
 
 // A reaction stays on the face for a while, then the face eases back to rest.
@@ -38,6 +37,15 @@ function afterChange(change) {
   game.save();
 }
 
+// Shows a line Emot said: typed bubble + her face from Jev's reading of it.
+function say(line, source) {
+  showLine(line.text);
+  react(parseAnswers(line), source, Infinity);
+}
+
+// One Claude line at a time: a touch is ignored while a reply is still coming, and the other way round.
+let talking = false;
+
 // ---- live reaction while typing (Jev /judge) ----
 
 const judge = createEmotionJudge({
@@ -52,81 +60,62 @@ const judge = createEmotionJudge({
 });
 input.addEventListener('input', () => judge.queue(input.value));
 
-// ---- sending: a normal message (/send) or the answer to today's worry (/answer) ----
+// ---- sending: Jev judges the message (/send) while Claude writes Emot's answer (/reply) ----
 
-let sending = false;
 document.getElementById('chat').addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = input.value.trim();
-  if (!text || sending) return;
-  sending = true;
+  if (!text || talking) return;
+  talking = true;
   input.value = '';
   judge.queue(''); // drop live readings still in flight for the text just sent
   showStatus('pending');
-  const worry = game.state.worry;
-  try {
-    const data = await post(worry ? '/answer' : '/send', { ...game.context(), text, worry: worry ?? undefined });
-    const reading = parseAnswers(data);
-    if (worry) {
-      const score = Number(data.answers?.help?.score) || 0;
-      afterChange(game.applyAnswer(text, score));
-      showWorry(null);
-      showStatus('idle', `고민에 대한 대답 ${score.toFixed(1)}점 (4점 만점)`);
-      react(reading, '고민 대답');
-    } else {
-      const warmth = Number(data.answers?.warmth?.score) || 0;
-      const hurtful = Number(data.answers?.hurtful?.noul) || 0;
-      afterChange(game.applySend(text, warmth, hurtful));
-      showStatus('idle');
-      react(reading, '보낸 말');
-    }
-  } catch (error) {
-    input.value = text; // don't lose what the player typed
-    showStatus('error', error.message);
-  } finally {
-    sending = false;
+  game.remember('player', text);
+  showThinking();
+
+  let replied = false;
+  const judging = post('/send', { ...game.context(), text }).then((data) => {
+    if (!replied) react(parseAnswers(data), '보낸 말'); // her reaction until the answer arrives
+    afterChange(game.applySend(Number(data.answers?.warmth?.score) || 0, Number(data.answers?.hurtful?.noul) || 0));
+    showStatus('idle');
+  });
+  const replying = post('/reply', { ...game.llmContext(Date.now()), text }).then((reply) => {
+    replied = true;
+    game.rememberLine(reply);
+    game.save();
+    say(reply, '이모트 대답');
+  });
+
+  const [judged, answered] = await Promise.allSettled([judging, replying]);
+  if (judged.status === 'rejected') showStatus('error', judged.reason.message);
+  if (answered.status === 'rejected') {
+    hideBubble();
+    showToast(`이모트가 대답하지 못했어요: ${answered.reason.message}`);
   }
+  talking = false;
 });
 
-// ---- touching Emot: a line (Claude /line), or sometimes today's worry (/worry). Both cost 1 energy ----
-
-let speaking = false;
-
-async function sayLine(now) {
-  const line = await post('/line', game.llmContext(now));
-  showLine(line.text);
-  react(parseAnswers(line), '이모트 대사', Infinity); // the Worker has Jev read her line
-  afterChange(game.applyLine(line));
-}
-
-async function shareWorry(now) {
-  const worry = await post('/worry', game.llmContext(now));
-  const { text } = worry;
-  react(parseAnswers(worry), '이모트의 고민', Infinity);
-  game.startWorry(text);
-  game.save();
-  showWorry(text);
-  showLine(text, '이모트의 고민');
-}
+// ---- touching Emot: she opens a new topic (Claude /line), costs 1 energy ----
 
 canvas.addEventListener('click', async (event) => {
-  if (speaking || !view.hitTest(event.clientX, event.clientY)) return;
+  if (talking || !view.hitTest(event.clientX, event.clientY)) return;
   const now = Date.now();
   if (!game.spendEnergy(now)) {
     showToast('에너지가 없어요. 충전되면 다시 눌러 주세요');
     return;
   }
-  speaking = true;
+  talking = true;
   showThinking();
-  const worry = game.canAskWorry && Math.random() < WORRY_CHANCE;
   try {
-    await (worry ? shareWorry(now) : sayLine(now));
+    const line = await post('/line', game.llmContext(now));
+    say(line, '이모트 대사');
+    afterChange(game.applyLine(line));
   } catch (error) {
     game.refundEnergy();
     hideBubble();
     showToast(`이모트가 말하지 못했어요: ${error.message}`);
   } finally {
-    speaking = false;
+    talking = false;
   }
 });
 
@@ -134,11 +123,37 @@ canvas.addEventListener('pointermove', (event) => {
   canvas.style.cursor = view.hitTest(event.clientX, event.clientY) ? 'pointer' : 'default';
 });
 
+// ---- memory view and meeting a new Emot ----
+
+document.getElementById('memory-button').addEventListener('click', () => openMemory(game.state));
+
+document.getElementById('reroll-button').addEventListener('click', () => {
+  confirmReroll(() => {
+    const now = Date.now();
+    game.reroll(now);
+    game.save();
+    face.setRest(game.level, game.state.personality);
+    face.setEmotion({}, 0);
+    holdUntil = 0;
+    hideBubble();
+    showStats(game, now);
+    showToast(`새 이모트가 왔어요. 이번엔 ${PERSONALITIES[game.state.personality]}`);
+  });
+});
+
 // ---- frame loop ----
 
+const NARROW_SCREEN = 760; // matches the narrow-screen breakpoint in style.css
+const status = document.querySelector('.status');
+
 function resize() {
-  view.resize();
-  placeBubble(view.toScreen(CHARACTER.bubble));
+  // On narrow screens the status block sits above Emot instead of beside her.
+  view.resize(window.innerWidth < NARROW_SCREEN ? status.getBoundingClientRect().bottom + 8 : 0);
+  placeBubble(
+    view.toScreen(CHARACTER.bubble),
+    view.toScreen({ x: CHARACTER.centerX, y: CHARACTER.chinY }).y,
+    view.toScreen(CHARACTER.mouth),
+  );
 }
 window.addEventListener('resize', resize);
 resize();

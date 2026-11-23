@@ -1,6 +1,6 @@
 // Every tuning number lives here so balancing never touches logic files.
 
-// Cloudflare Worker (worker/). Routes: /judge /send /answer /line /worry
+// Cloudflare Worker (worker/). Routes: /judge /send /line /reply
 export const PROXY_URL = 'https://emot-proxy.khj59105.workers.dev';
 export const JUDGE_INTERVAL_MS = 400; // while typing, ask Jev at most this often
 
@@ -26,15 +26,12 @@ export const LEVEL_XP = [0, 60, 140, 240, 360, 500, 660, 840, 1040, 1260];
 
 // XP gains scale with the needs: 0.5x when both are empty, 1.5x when both are full.
 export const REWARDS = {
-  line: { social: 8, xp: 5 }, // Emot spoke after a click
+  line: { social: 8, xp: 5 }, // Emot opened a topic after a touch
   send: { social: 4, xp: 2, bondPerWarmth: 3, xpPerWarmth: 2 }, // warmth is Jev's 0..4 score
   hurt: { bond: -12, xp: -20 }, // Jev says the message was hurtful
-  answer: { social: 5, bondPerScore: 5, xpPerScore: 8 }, // worry answer, Jev's 0..4 score
 };
 export const HURT_THRESHOLD = 0.6;
 
-export const WORRIES_PER_DAY = 3;
-export const WORRY_CHANCE = 0.35; // a touch brings today's worry instead of a line, while worries are left
 export const HISTORY_SIZE = 6;
 export const FACE_HOLD_MS = 6000; // a reaction stays on the face this long, then eases back to neutral
 export const AFTER_BUBBLE_HOLD_MS = 1500; // Emot keeps the line's face briefly after its bubble closes
@@ -57,13 +54,16 @@ export const CHARACTER = {
   centerX: 543,
   feetY: 1420, // breathing scales from here so the feet stay planted
   headTilt: -0.12, // the face leans; eyes and mouth rotate with it
-  leftEye: { x: 493, y: 224 },
-  rightEye: { x: 600, y: 210 },
+  leftEye: { x: 501, y: 224 },
+  rightEye: { x: 592, y: 210 },
+  eye: { width: 30, height: 19.5, pupil: 5.8 }, // open-eye size; must still cover the drawing's closed lids
+  mole: { x: -13, y: 27 }, // under the viewer's-left eye, redrawn because the larger eye covers the original
   mouth: { x: 553, y: 263 },
   cheeks: [{ x: 484, y: 248 }, { x: 612, y: 236 }],
   hit: { x0: 340, y0: 20, x1: 745, y1: 1440 },
-  bubble: { x: 700, y: 150 }, // where the speech bubble's tail points, beside the head
-  screenHeight: 0.74, // share of the free vertical space the drawing fills
+  bubble: { x: 720, y: 330 }, // speech bubble's top-left corner: beside the chest, below the face
+  chinY: 300, // the bubble never rises above this, so it can't cover the face
+  screenHeight: 0.6, // share of the free vertical space the drawing fills
 };
 
 export const BREATH_SECONDS = 3.6;

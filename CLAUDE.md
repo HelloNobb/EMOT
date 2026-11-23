@@ -6,7 +6,7 @@
 - 클라이언트: 순수 ES 모듈 + Canvas 2D. 빌드 도구·외부 라이브러리 없음. GitHub Pages(저장소 루트)에 그대로 배포
 - 프록시: Cloudflare Worker(`worker/`). 의존성 `@anthropic-ai/sdk`, `zod`(버전 고정, wrangler가 번들)
 - 감정 판단: TypeSafe API `POST https://api.typesafe.ai/v1/systemone`, 모델 `jev-latest`
-- 대사·고민 생성: Claude Haiku 5.5 `claude-haiku-5-5` (SDK `messages.parse` + `zodOutputFormat`)
+- 대사·대답 생성: Claude Haiku 5.5 `claude-haiku-5-5` (SDK `messages.parse` + `zodOutputFormat`)
 
 ## 역할 분담 (웹 버전)
 | 항목 | 담당 |
@@ -20,15 +20,15 @@
 ## 구조
 | 파일 | 책임 |
 |---|---|
-| `src/main.js` | 프레임 루프, 모듈 연결, 클릭(대사)·전송·고민 흐름, 반응 유지 시간 |
+| `src/main.js` | 프레임 루프, 모듈 연결, 터치(대사)·전송(판정+대답)·재배정 흐름, 반응 유지 시간 |
 | `src/config.js` | 튜닝 수치 전부 (욕구·에너지·레벨·보상, 얼굴 파라미터 프리셋, 그림 좌표) |
 | `src/character.js` | Canvas 2D: 기본 그림(곱하기 합성) + 숨쉬기 + 코드로 그린 눈·눈썹·입·만화 기호 |
 | `src/face.js` | 얼굴 파라미터: 휴식 얼굴(레벨·성격) + 감정 오프셋 × 확률, 보간, 깜빡임, 시선 |
-| `src/game.js` | 저장되는 상태 전부: 성격, 욕구, 호감도, 에너지, 오늘의 고민, 최근 대화·핵심 기억. 시간 경과는 타임스탬프로 계산 |
+| `src/game.js` | 저장되는 상태 전부: 성격, 욕구, 호감도, 에너지, 최근 대화·핵심 기억, 재배정. 시간 경과는 타임스탬프로 계산 |
 | `src/emotion.js` | 입력 중 실시간 판정(스로틀, 오래된 응답 폐기), Jev 응답 파싱 |
 | `src/api.js` | Worker POST 한 곳 |
-| `src/ui.js` | DOM 갱신만 (패널, 말풍선, 토스트, 고민 카드) |
-| `worker/index.js` | 경로별 검증·레이트리밋, 프롬프트·질문 소유, Jev/Haiku 호출 |
+| `src/ui.js` | DOM 갱신만 (상태, 감정 수치, 말풍선 타이핑, 토스트, 기억·재배정 다이얼로그). 목록은 index.html의 고정 슬롯을 채움 |
+| `worker/index.js` | `/judge` `/send`(Jev), `/line` `/reply`(Haiku + Jev로 대사 감정). 검증·레이트리밋, 페르소나·레벨 태도·질문 소유 |
 | `tests/check.mjs` | `node tests/check.mjs`: 파싱·게임 상태·얼굴·스로틀 점검 |
 
 ## 규칙

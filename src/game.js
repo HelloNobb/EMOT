@@ -1,6 +1,6 @@
 import {
   PERSONALITIES, START_NEEDS, DECAY_PER_HOUR, ENERGY_MAX, ENERGY_REGEN_MS, LEVEL_XP, REWARDS, HURT_THRESHOLD,
-  WORRIES_PER_DAY, HISTORY_SIZE, SAVE_KEY,
+  HISTORY_SIZE, SAVE_KEY,
 } from './config.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -9,7 +9,6 @@ const MAX_MEMORY = 8;
 const MAX_MEMORY_TEXT = 60;
 
 const clampPercent = (value) => Math.max(0, Math.min(100, value));
-const dayKey = (now) => new Date(now).toDateString(); // local date: worries reset at the player's midnight
 
 export function levelForXp(xp) {
   let level = 1;
@@ -17,8 +16,9 @@ export function levelForXp(xp) {
   return level;
 }
 
-function freshState(now) {
-  const keys = Object.keys(PERSONALITIES);
+// except: a personality to leave out, so meeting a new Emot never brings back the same one.
+function freshState(now, except = null) {
+  const keys = Object.keys(PERSONALITIES).filter((key) => key !== except);
   return {
     version: 2,
     personality: keys[Math.floor(Math.random() * keys.length)],
@@ -28,9 +28,6 @@ function freshState(now) {
     energy: ENERGY_MAX,
     energyAt: now,
     needsAt: now,
-    worryDay: dayKey(now),
-    worriesUsed: 0,
-    worry: null,
     history: [],
     memory: [],
   };
@@ -39,7 +36,7 @@ function freshState(now) {
 function isSave(saved) {
   return saved?.version === 2
     && saved.personality in PERSONALITIES
-    && ['social', 'bond', 'xp', 'energy', 'energyAt', 'needsAt', 'worriesUsed'].every((key) => Number.isFinite(saved[key]))
+    && ['social', 'bond', 'xp', 'energy', 'energyAt', 'needsAt'].every((key) => Number.isFinite(saved[key]))
     && Array.isArray(saved.history) && Array.isArray(saved.memory);
 }
 
@@ -53,7 +50,7 @@ function loadState(now) {
   return freshState(now);
 }
 
-// Owns everything that is saved: personality, needs, affinity, energy, today's worries, short memory.
+// Owns everything that is saved: personality, needs, affinity, energy, recent talk and key memories.
 // Time-based changes are computed from timestamps, so closing the tab still lets time pass.
 export class Game {
   constructor(now) {
@@ -65,12 +62,9 @@ export class Game {
     return levelForXp(this.state.xp);
   }
 
-  get worriesLeft() {
-    return WORRIES_PER_DAY - this.state.worriesUsed;
-  }
-
-  get canAskWorry() {
-    return this.worriesLeft > 0 && !this.state.worry;
+  // Wipes this Emot and brings a new one with a different personality.
+  reroll(now) {
+    this.state = freshState(now, this.state.personality);
   }
 
   levelProgress() {
@@ -95,12 +89,6 @@ export class Game {
         state.energy = Math.min(ENERGY_MAX, state.energy + gained);
         state.energyAt = state.energy >= ENERGY_MAX ? now : state.energyAt + gained * ENERGY_REGEN_MS;
       }
-    }
-
-    if (state.worryDay !== dayKey(now)) {
-      state.worryDay = dayKey(now);
-      state.worriesUsed = 0;
-      state.worry = null;
     }
   }
 
@@ -156,7 +144,8 @@ export class Game {
     };
   }
 
-  applyLine(line) {
+  // Anything Emot said: kept in the recent talk, and her updated key memories replace the old list.
+  rememberLine(line) {
     this.remember('emot', line.text);
     if (Array.isArray(line.memory)) {
       this.state.memory = line.memory
@@ -164,12 +153,16 @@ export class Game {
         .slice(0, MAX_MEMORY)
         .map((item) => item.slice(0, MAX_MEMORY_TEXT));
     }
+  }
+
+  // Emot spoke first after a touch (the touch is what earns the reward; replies earn through applySend).
+  applyLine(line) {
+    this.rememberLine(line);
     return this.change(REWARDS.line);
   }
 
-  // warmth: Jev score 0..4. hurtful: Jev probability 0..1.
-  applySend(text, warmth, hurtful) {
-    this.remember('player', text);
+  // warmth: Jev score 0..4. hurtful: Jev probability 0..1. The message itself is remembered on send.
+  applySend(warmth, hurtful) {
     const { send, hurt } = REWARDS;
     if (hurtful >= HURT_THRESHOLD) return this.change({ social: send.social, bond: hurt.bond, xp: hurt.xp });
     return this.change({
@@ -177,20 +170,6 @@ export class Game {
       bond: warmth * send.bondPerWarmth,
       xp: send.xp + warmth * send.xpPerWarmth,
     });
-  }
-
-  startWorry(text) {
-    this.state.worry = text;
-    this.state.worriesUsed++;
-    this.remember('emot', text);
-  }
-
-  // score: Jev's 0..4 rating of how well the answer met the worry.
-  applyAnswer(text, score) {
-    this.state.worry = null;
-    this.remember('player', text);
-    const { answer } = REWARDS;
-    return this.change({ social: answer.social, bond: score * answer.bondPerScore, xp: score * answer.xpPerScore });
   }
 
   save() {

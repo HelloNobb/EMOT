@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseAnswers, createEmotionJudge } from '../src/emotion.js';
 import { Game, levelForXp } from '../src/game.js';
 import { Face } from '../src/face.js';
-import { JUDGE_INTERVAL_MS, ENERGY_MAX, ENERGY_REGEN_MS, LEVEL_XP, WORRIES_PER_DAY, DECAY_PER_HOUR } from '../src/config.js';
+import { JUDGE_INTERVAL_MS, ENERGY_MAX, ENERGY_REGEN_MS, LEVEL_XP, DECAY_PER_HOUR } from '../src/config.js';
 
 // ---- Jev answer parsing ----
 const result = parseAnswers({
@@ -55,27 +55,35 @@ game.tick(later);
 assert.ok(Math.abs(socialBefore - game.state.social - DECAY_PER_HOUR.social * 2) < 1e-6);
 
 // warm message raises bond and XP; hurtful one lowers them, clamped at 0 and reported as clamped
-const warm = game.applySend('고마워', 4, 0);
+game.remember('player', '고마워');
+const warm = game.applySend(4, 0);
 assert.ok(warm.bond > 0 && warm.xp > 0);
-const hurt = game.applySend('바보', 0, 0.9);
+game.remember('player', '바보');
+const hurt = game.applySend(0, 0.9);
 assert.ok(hurt.bond < 0);
 assert.equal(game.state.xp, Math.max(0, warm.xp + hurt.xp));
 assert.equal(game.state.history.length, 2);
 
-// worries: three per day, reset on the next local day
-for (let index = 0; index < WORRIES_PER_DAY; index++) {
-  assert.ok(game.canAskWorry);
-  game.startWorry(`고민 ${index}`);
-  assert.equal(game.canAskWorry, false); // one at a time
-  game.applyAnswer('괜찮아', 3);
-}
-assert.equal(game.worriesLeft, 0);
-game.tick(later + 24 * 60 * 60 * 1000);
-assert.equal(game.worriesLeft, WORRIES_PER_DAY);
-
-// line memory is trimmed to the limits
-game.applyLine({ text: '흥', memory: Array.from({ length: 12 }, (_, index) => `기억 ${index}`) });
+// a reply is remembered without a reward; a touch line earns one. Memory is trimmed to the limits
+const xpBeforeReply = game.state.xp;
+game.rememberLine({ text: '그래서?', memory: Array.from({ length: 12 }, (_, index) => `기억 ${index}`) });
+assert.equal(game.state.xp, xpBeforeReply);
 assert.equal(game.state.memory.length, 8);
+assert.ok(game.applyLine({ text: '창밖 봤어?', memory: [] }).social > 0);
+assert.equal(game.state.history.at(-1).text, '창밖 봤어?');
+
+// recent talk keeps only the last few lines
+for (let index = 0; index < 10; index++) game.remember('player', `말 ${index}`);
+assert.equal(game.state.history.length, 6);
+
+// meeting a new Emot wipes progress and never repeats the personality
+for (let round = 0; round < 10; round++) {
+  const before = game.state.personality;
+  game.reroll(later);
+  assert.notEqual(game.state.personality, before);
+  assert.equal(game.state.xp, 0);
+  assert.equal(game.state.history.length, 0);
+}
 
 // ---- face: emotion offsets move the target, and a blink closes the eyes ----
 const face = new Face();

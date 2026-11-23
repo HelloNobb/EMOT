@@ -22,15 +22,17 @@ export class CharacterView {
     this.resize();
   }
 
-  resize() {
+  // topReserved: CSS px at the top already taken by UI (narrow screens stack the status above Emot).
+  resize(topReserved = 0) {
     const ratio = Math.min(window.devicePixelRatio, 2);
     this.ratio = ratio;
     this.canvas.width = Math.round(window.innerWidth * ratio);
     this.canvas.height = Math.round(window.innerHeight * ratio);
-    const free = window.innerHeight - BOTTOM_SPACE;
-    this.scale = Math.max(0.1, (free * CHARACTER.screenHeight) / CHARACTER.height);
+    const free = window.innerHeight - BOTTOM_SPACE - topReserved;
+    const share = topReserved ? 0.95 : CHARACTER.screenHeight; // stacked layout: use all the room left
+    this.scale = Math.max(0.1, (free * share) / CHARACTER.height);
     this.offsetX = window.innerWidth / 2 - CHARACTER.centerX * this.scale;
-    this.offsetY = (free - CHARACTER.height * this.scale) * 0.8; // low in the free space, feet near the chat line
+    this.offsetY = topReserved + (free - CHARACTER.height * this.scale) * 0.8; // feet near the chat line
   }
 
   toScreen({ x, y }) {
@@ -87,9 +89,12 @@ function inFaceSpace(context, point, draw) {
 // side: +1 for the eye on the viewer's left (its inner corner points right), -1 for the other.
 function drawEye(context, center, side, face) {
   inFaceSpace(context, center, () => {
-    const width = 20;
-    const height = 13 * face.eyeOpen;
-    if (face.eyeOpen >= 0.12) drawOpenEye(context, width, height, face); // below that the drawing's own closed lids show
+    const { width, height: fullHeight } = CHARACTER.eye;
+    const height = fullHeight * face.eyeOpen;
+    if (face.eyeOpen >= 0.12) { // below that the drawing's own closed lids show
+      drawOpenEye(context, width, height, face);
+      if (side === 1) drawMole(context);
+    }
     drawBrow(context, side, face, height); // after the eye: the eye's paper fill would cover it
   });
 }
@@ -98,7 +103,7 @@ function drawOpenEye(context, width, height, face) {
   // Paint over the drawing's closed lid and lashes, then draw the open eye.
   context.fillStyle = PAPER;
   context.beginPath();
-  context.ellipse(0, 1, 24, Math.max(11, height + 2), 0, 0, Math.PI * 2);
+  context.ellipse(0, 1, width + 4, Math.max(11, height + 2), 0, 0, Math.PI * 2);
   context.fill();
 
   context.beginPath();
@@ -108,7 +113,7 @@ function drawOpenEye(context, width, height, face) {
   context.clip();
   context.fillStyle = INK;
   context.beginPath();
-  context.arc(face.gazeX * width * 0.55, face.gazeY * height * 0.5, 3.8 * face.pupilSize, 0, Math.PI * 2);
+  context.arc(face.gazeX * width * 0.55, face.gazeY * height * 0.5, CHARACTER.eye.pupil * face.pupilSize, 0, Math.PI * 2);
   context.fill();
   context.restore();
 
@@ -131,12 +136,21 @@ function drawOpenEye(context, width, height, face) {
   context.globalAlpha = 1;
 }
 
+// The open eye covers the drawing's mole, so it is put back just below.
+function drawMole(context) {
+  context.fillStyle = INK;
+  context.beginPath();
+  context.arc(CHARACTER.mole.x, CHARACTER.mole.y, 2.4, 0, Math.PI * 2);
+  context.fill();
+}
+
 function drawBrow(context, side, face, eyeHeight) {
-  const y = -19 - face.browHeight * 7 - Math.max(0, eyeHeight - 13) * 0.4;
-  const outer = { x: -side * 15, y: y + face.browTilt * 1.5 };
-  const inner = { x: side * 12, y: y - face.browTilt * 5 };
+  const full = CHARACTER.eye.height;
+  const y = -(full + 5) - face.browHeight * 7 - Math.max(0, eyeHeight - full) * 0.4; // close to the lid so it reads apart from the bangs
+  const outer = { x: -side * 20, y: y + face.browTilt * 2 };
+  const inner = { x: side * 16, y: y - face.browTilt * 6 };
   context.strokeStyle = INK;
-  context.lineWidth = LINE;
+  context.lineWidth = LINE * 1.35;
   context.beginPath();
   context.moveTo(outer.x, outer.y);
   context.quadraticCurveTo(0, Math.min(outer.y, inner.y) - 3, inner.x, inner.y);
