@@ -120,7 +120,7 @@ let onBubbleClosed = () => {};
 // corner: where the bubble wants its top-left (beside the chest). chinY: it never rises above this,
 // so the face stays visible. mouth: where the tail on its top edge points.
 export function placeBubble(corner, chinY, mouth) {
-  const width = Math.min(330, window.innerWidth - 32); // matches the CSS width
+  const width = Math.min(300, window.innerWidth - 32); // matches the CSS width
   const left = Math.max(16, Math.min(corner.x, window.innerWidth - width - 16));
   bubble.style.left = `${left}px`;
   bubble.style.top = `${Math.max(corner.y, chinY + 18)}px`;
