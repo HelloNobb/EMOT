@@ -21,6 +21,10 @@ const PLAYER_KEYS = ['likes', 'dislikes', 'people', 'plans'];
 const SELF_KEYS = ['likes', 'dislikes', 'treasures'];
 const MAX_PER_KEY = 6;
 const EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust', 'contempt'];
+const EMOTION_WORDS = {
+  neutral: '담담함', happy: '기쁨', sad: '슬픔', angry: '화남', surprised: '놀람', fear: '두려움', disgust: '거부감', contempt: '경멸',
+};
+const INTENSITY_WORDS = ['아주 약하게', '약하게', '분명하게', '강하게', '압도적으로'];
 const MAX_STORY = 30; // shared moments from level-up events
 const MAX_STORY_TEXT = 80;
 const MAX_LINE_TEXT = 120;
@@ -375,25 +379,44 @@ const ROUTES = {
   },
 
   // Emot answers the message the player just sent (also the last item in history).
+  // feeling: Jev's reading of how Emot felt hearing the message (from /send). The answer must carry that
+  // same emotion, so the face, the readout and the words agree instead of Claude picking its own mood.
   async '/reply'(body, env, allowLlm) {
     const input = readLlmInput(body);
-    if (!input || !isText(body.text, MAX_TEXT)) return null;
+    const feeling = readFeeling(body?.feeling);
+    if (!input || !isText(body.text, MAX_TEXT) || feeling === undefined) return null;
     if (!(await allowLlm())) return 'limited';
-    return speak(env, input, [
+    const prompt = [
       input.context,
       '',
       `플레이어가 방금 이렇게 말했다: ${JSON.stringify(body.text.trim())}`,
       '이 말에 대답한다. 질문이면 답하고, 대화 흐름을 자연스럽게 이어 간다.',
-    ]);
+    ];
+    if (feeling) {
+      prompt.push(
+        `이 말을 듣고 너는 지금 ${EMOTION_WORDS[feeling.emotion]}을 ${INTENSITY_WORDS[feeling.intensity]} 느낀다.`,
+        '대답에 이 감정이 분명히 드러나야 한다. 성격대로 표현하되(쑥스러움, 퉁명스러움 등), 다른 감정으로 읽히게 쓰지 않는다.',
+      );
+    }
+    return speak(env, input, prompt, feeling);
   },
 };
 
 const cleanFacts = (list) => list.map((item) => item.trim().slice(0, MAX_FACT)).filter(Boolean).slice(0, MAX_PER_KEY);
 
-async function speak(env, input, prompt) {
+// undefined = invalid, null = not given, otherwise { emotion, intensity 0..4 }.
+function readFeeling(feeling) {
+  if (feeling == null) return null;
+  if (!EMOTIONS.includes(feeling.emotion) || ![0, 1, 2, 3, 4].includes(feeling.intensity)) return undefined;
+  return feeling;
+}
+
+// feeling given: the emotion is already decided, so the line isn't re-read (re-reading a blunt, shy
+// answer as "angry" was what made the face flip). Without it, Jev reads the line as before.
+async function speak(env, input, prompt, feeling = null) {
   const line = await askHaiku(env, input.state.personality, input.name, prompt.join('\n'));
   const text = line.text.slice(0, MAX_LINE_TEXT);
-  const answers = await readOwnWords(env, input.state, text);
+  const answers = feeling ? null : await readOwnWords(env, input.state, text);
   const found = line.memory;
   const summary = found.episodeSummary.trim().slice(0, MAX_EPISODE);
   return {
@@ -410,7 +433,11 @@ async function speak(env, input, prompt) {
       },
       self: { likes: cleanFacts(found.selfLikes), dislikes: cleanFacts(found.selfDislikes), treasures: cleanFacts(found.selfTreasures) },
       episode: summary
-        ? { summary, weight: Math.max(1, Math.min(3, Math.round(found.episodeWeight))), feeling: answers.emotion?.choice ?? 'neutral' }
+        ? {
+          summary,
+          weight: Math.max(1, Math.min(3, Math.round(found.episodeWeight))),
+          feeling: feeling?.emotion ?? answers?.emotion?.choice ?? 'neutral',
+        }
         : null,
     },
   };
