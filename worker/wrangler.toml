@@ -3,17 +3,17 @@ main = "index.js"
 compatibility_date = "2026-11-01"
 
 # Per-IP limits used in index.js. period must be 10 or 60 seconds.
-# Jev routes (judge/send/answer): live typing sends up to ~150/min.
+# Jev routes (judge/send): live typing sends up to ~150/min.
 [[ratelimits]]
 name = "JEV_LIMITER"
 namespace_id = "1001"
 simple = { limit = 180, period = 60 }
 
-# Claude routes (line/worry): energy allows 3 per 5 min, so this only stops abuse.
+# Claude routes (line/reply): touches are energy-gated and replies follow typing, so this only stops abuse.
 [[ratelimits]]
 name = "LLM_LIMITER"
 namespace_id = "1002"
-simple = { limit = 6, period = 60 }
+simple = { limit = 12, period = 60 }
 
 # Secrets, not stored here:
 #   npx wrangler secret put TYPESAFE_API_KEY
